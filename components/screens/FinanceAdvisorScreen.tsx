@@ -75,6 +75,7 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
     totalIncome,
     totalExpenses,
     netCashFlow,
+    healthScore,
   } = useApp();
   const t = dictionary.finance;
   const isTe = language === 'te';
@@ -602,7 +603,299 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
         </div>
       </section>
 
-      {/* 3. Working Capital vs. Capital Expenditure (Capex) Breakdown */}
+      {/* ========================================================================= */}
+      {/* 3. FINANCIAL INTELLIGENCE WORKSPACE (Split Screen Layout)                  */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT / MAIN: Conversational AI Loan Advisor Workspace (lg:col-span-7 xl:col-span-8) */}
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+          <section className="rounded-2xl border bg-card shadow-xs overflow-hidden flex flex-col h-[680px]">
+            <div className="p-4 sm:p-5 border-b bg-muted/20 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <Bot className="size-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold font-sora text-sm sm:text-base text-foreground">
+                      {isTe ? 'ఇంటరాక్టివ్ AI లోన్ అడ్వైజర్ సంభాషణ' : 'Interactive AI Loan Advisor'}
+                    </h3>
+                    <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                      {adviceData?.providerUsed || 'Gemini 2.5 Flash'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {isTe
+                      ? 'మీ రుణ గణాంకాలు, వర్కింగ్ క్యాపిటల్ లేదా దరఖాస్తు విధానం గురించి ఏవైనా సందేహాలు అడగండి.'
+                      : 'Ask follow-up questions about your loan numbers, interest rates, seasonal grace, or bank paperwork.'}
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1.5">
+                <MessageSquare className="size-3.5" />
+                <span>{messages.length} {isTe ? 'సందేశాలు' : 'Turns'}</span>
+              </span>
+            </div>
+
+            {/* Chat message thread */}
+            <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3.5 bg-background">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex gap-3 text-xs leading-relaxed message-enter ${
+                    msg.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  {msg.role === 'assistant' && (
+                    <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                      <Bot className="size-4" />
+                    </div>
+                  )}
+
+                  <div
+                    className={`max-w-xl rounded-2xl p-3.5 ${
+                      msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground font-medium rounded-tr-xs'
+                        : msg.isError
+                        ? 'bg-destructive/10 border border-destructive/20 text-destructive rounded-tl-xs'
+                        : 'bg-muted/40 border text-foreground rounded-tl-xs'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <p
+                      className={`text-[10px] mt-1.5 text-right ${
+                        msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {msg.timestamp}
+                    </p>
+                  </div>
+
+                  {msg.role === 'user' && (
+                    <div className="size-7 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">
+                      <User className="size-4" />
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {isChatLoading && (
+                <div className="flex gap-3 text-xs justify-start">
+                  <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="size-4" />
+                  </div>
+                  <div className="rounded-2xl rounded-tl-xs p-3.5 bg-muted/40 border text-muted-foreground flex items-center gap-2">
+                    <RefreshCw className="size-3.5 animate-spin text-primary" />
+                    <span>{isTe ? 'రుణ సలహాదారు విశ్లేషిస్తున్నారు...' : 'Advisor is analyzing your loan figures...'}</span>
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Suggested Quick Question Pills */}
+            <div className="px-4 py-2.5 bg-muted/20 border-t flex flex-wrap gap-1.5 text-xs shrink-0">
+              <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mr-1">
+                <HelpCircle className="size-3" />
+                {isTe ? 'సూచనలు:' : 'Suggestions:'}
+              </span>
+              {SUGGESTED_QUESTIONS.map((q, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSendMessage(q)}
+                  disabled={isChatLoading}
+                  className="px-2.5 py-1 rounded-full border bg-background text-[11px] text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+
+            {/* Voice Error Notification */}
+            {voiceError && (
+              <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20 text-destructive text-xs flex items-center justify-between animate-in fade-in shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  {voiceError}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setVoiceError(null)}
+                  className="text-xs underline font-semibold ml-2 cursor-pointer shrink-0"
+                >
+                  {isTe ? 'మూసివేయి' : 'Dismiss'}
+                </button>
+              </div>
+            )}
+
+            {/* Input Bar */}
+            <div className="p-3 sm:p-4 border-t bg-card flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleVoiceInput}
+                title={isListening ? (isTe ? 'వాయిస్ నిలిపివేయండి' : 'Stop listening') : (isTe ? 'వాయిస్ ద్వారా అడగండి' : 'Speak your question')}
+                className={`cursor-pointer shrink-0 transition-all ${
+                  isListening ? 'bg-destructive text-destructive-foreground animate-pulse ring-2 ring-destructive/40' : ''
+                }`}
+              >
+                {isListening ? <MicOff className="size-4" /> : <Mic className="size-4 text-primary" />}
+              </Button>
+
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={
+                  isListening
+                    ? (isTe ? 'వింటున్నాము... మాట్లాడండి...' : 'Listening... speak your question...')
+                    : (isTe
+                        ? 'రుణ వివరాలు, వడ్డీ లేదా బ్యాంక్ నిబంధనల గురించి అడగండి...'
+                        : 'Ask anything about your loan numbers, interest rates, or schemes...')
+                }
+                disabled={isChatLoading}
+                className="flex-1 rounded-xl border bg-background px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
+              />
+
+              <Button
+                size="sm"
+                onClick={() => handleSendMessage()}
+                disabled={!inputText.trim() || isChatLoading}
+                className="cursor-pointer shrink-0 gap-1.5 text-xs"
+              >
+                <Send className="size-3.5" />
+                <span className="hidden sm:inline">{isTe ? 'పంపు' : 'Send'}</span>
+              </Button>
+            </div>
+          </section>
+        </div>
+
+        {/* RIGHT: YOUR FINANCIAL POSITION Contextual Panel (lg:col-span-5 xl:col-span-4 sticky top-20) */}
+        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4 sticky top-20">
+          <section className="rounded-2xl border bg-card p-5 shadow-xs space-y-4 hover-lift">
+            <div className="flex items-center justify-between pb-3 border-b">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                  {isTe ? 'నిజమైన ఆర్థిక డేటా' : 'Live Contextual Telemetry'}
+                </span>
+                <h3 className="font-bold font-sora text-sm text-foreground">
+                  {isTe ? 'మీ ఆర్థిక పరిస్థితి' : 'YOUR FINANCIAL POSITION'}
+                </h3>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-2xs">
+                <ShieldCheck className="size-3.5" />
+                <span>{healthScore.score}/100</span>
+              </div>
+            </div>
+
+            {/* Live Position Metrics Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+                <span className="text-[10px] text-muted-foreground block">{isTe ? 'నెలవారీ రాబడి' : 'Monthly Revenue'}</span>
+                <strong className="font-mono font-bold text-foreground text-sm">{formatINR(totalIncome)}</strong>
+              </div>
+              <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+                <span className="text-[10px] text-muted-foreground block">{isTe ? 'నెలవారీ ఖర్చులు' : 'Monthly Expenses'}</span>
+                <strong className="font-mono font-bold text-amber-700 dark:text-amber-400 text-sm">{formatINR(totalExpenses)}</strong>
+              </div>
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <span className="text-[10px] text-emerald-800 dark:text-emerald-400 block font-medium">{isTe ? 'నికర మిగులు' : 'Net Cash Surplus'}</span>
+                <strong className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-sm">{formatINR(netCashFlow)}</strong>
+              </div>
+              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+                <span className="text-[10px] text-primary block font-medium">{isTe ? 'రుణ పరిమాణం' : 'Loan / Debt Position'}</span>
+                <strong className="font-mono font-bold text-primary text-sm">{formatINR(finance.loanAmount)}</strong>
+              </div>
+              <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+                <span className="text-[10px] text-muted-foreground block">{isTe ? 'త్రైమాసిక వాయిదా' : 'Quarterly EMI'}</span>
+                <strong className="font-mono font-bold text-foreground text-sm">{formatINR(finance.quarterlyEmi)}</strong>
+              </div>
+              <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+                <span className="text-[10px] text-muted-foreground block">{isTe ? 'నగదు నిల్వ (బఫర్)' : 'Available Cash Buffer'}</span>
+                <strong className="font-mono font-bold text-foreground text-sm">{formatINR(Math.max(0, netCashFlow))}</strong>
+              </div>
+            </div>
+
+            {/* Active Scheme Details */}
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-primary truncate max-w-44">
+                  {isTe && activeScheme.schemeNameTe ? activeScheme.schemeNameTe : activeScheme.schemeName}
+                </span>
+                <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                  {activeScheme.interestRateAnnual}% p.a.
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-1 border-t border-border/60">
+                <div>
+                  <span>{isTe ? 'త్రైమాసిక వాయిదా: ' : 'Quarterly EMI: '}</span>
+                  <strong className="text-foreground">{formatINR(activeScheme.quarterlyEmi)}</strong>
+                </div>
+                <div>
+                  <span>{isTe ? 'గ్రేస్ పీరియడ్: ' : 'Grace Period: '}</span>
+                  <strong className="text-foreground">{activeScheme.moratoriumMonths}m grace</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Working Capital Split Mini Bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-muted-foreground">{isTe ? 'వర్కింగ్ క్యాపిటల్ vs కేపెక్స్' : 'Working Capital vs Capex'}</span>
+                <span className="font-mono font-bold text-foreground">{wcBreakdown.workingCapitalPercent}% / {wcBreakdown.capexPercent}%</span>
+              </div>
+              <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden flex shadow-inner">
+                <div className="h-full bg-teal-600" style={{ width: `${wcBreakdown.workingCapitalPercent}%` }} />
+                <div className="h-full bg-violet-600" style={{ width: `${wcBreakdown.capexPercent}%` }} />
+              </div>
+            </div>
+
+            {/* Amortization Snapshot (First 4 Quarters) */}
+            <div className="pt-2 border-t space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-foreground">
+                  {isTe ? 'త్రైమాసిక వాయిదాల ప్రివ్యూ (Q1–Q4)' : 'Amortization Snapshot (Q1–Q4)'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowFullSchedule(!showFullSchedule)}
+                  className="text-[11px] text-primary font-bold hover:underline cursor-pointer"
+                >
+                  {showFullSchedule ? (isTe ? 'దాచు' : 'Hide') : (isTe ? 'మొత్తం 12Q చూడండి' : 'Full 12Q')}
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border bg-background">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-muted/50 border-b text-muted-foreground text-[10px]">
+                    <tr>
+                      <th className="p-1.5">{isTe ? 'త్రైమాసికం' : 'Qtr'}</th>
+                      <th className="p-1.5">{isTe ? 'వాయిదా' : 'EMI'}</th>
+                      <th className="p-1.5 text-right">{isTe ? 'మిగిలిన అసలు' : 'Balance'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {finance.amortizationSchedule.slice(0, 4).map((row) => (
+                      <tr key={row.quarter} className="hover:bg-muted/30">
+                        <td className="p-1.5 font-medium">Q{row.quarter} {row.isMoratorium ? '★' : ''}</td>
+                        <td className="p-1.5 font-mono">{formatINR(row.totalPayment)}</td>
+                        <td className="p-1.5 text-right font-mono text-muted-foreground">{formatINR(row.remainingBalance)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* 4. Working Capital vs. Capital Expenditure (Capex) Breakdown */}
       <section className="rounded-2xl border bg-card p-5 sm:p-6 shadow-xs hover-lift">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b">
           <div>
@@ -991,173 +1284,7 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
         </div>
       </section>
 
-      {/* 6. Conversational AI Loan Advisor Chat Interface */}
-      <section className="rounded-2xl border bg-card shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b bg-muted/20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <Bot className="size-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold font-sora text-sm sm:text-base text-foreground">
-                  {isTe ? 'ఇంటరాక్టివ్ AI లోన్ అడ్వైజర్ సంభాషణ' : 'Interactive AI Loan Advisor'}
-                </h3>
-                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
-                  {adviceData?.providerUsed || 'Gemini 2.5 Flash'}
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {isTe
-                  ? 'మీ రుణ గణాంకాలు, వర్కింగ్ క్యాపిటల్ లేదా దరఖాస్తు విధానం గురించి ఏవైనా సందేహాలు అడగండి.'
-                  : 'Ask follow-up questions about your loan numbers, interest rates, seasonal grace, or bank paperwork.'}
-              </p>
-            </div>
-          </div>
-
-          <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1.5">
-            <MessageSquare className="size-3.5" />
-            <span>{messages.length} {isTe ? 'సందేశాలు' : 'Turns'}</span>
-          </span>
-        </div>
-
-        {/* Chat message thread */}
-        <div className="p-4 sm:p-5 max-h-96 min-h-64 overflow-y-auto space-y-3.5 bg-background">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 text-xs leading-relaxed message-enter ${
-                msg.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              {msg.role === 'assistant' && (
-                <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="size-4" />
-                </div>
-              )}
-
-              <div
-                className={`max-w-xl rounded-2xl p-3.5 ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground font-medium rounded-tr-xs'
-                    : msg.isError
-                    ? 'bg-destructive/10 border border-destructive/20 text-destructive rounded-tl-xs'
-                    : 'bg-muted/40 border text-foreground rounded-tl-xs'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-                <p
-                  className={`text-[10px] mt-1.5 text-right ${
-                    msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                  }`}
-                >
-                  {msg.timestamp}
-                </p>
-              </div>
-
-              {msg.role === 'user' && (
-                <div className="size-7 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">
-                  <User className="size-4" />
-                </div>
-              )}
-            </div>
-          ))}
-
-          {isChatLoading && (
-            <div className="flex gap-3 text-xs justify-start">
-              <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                <Bot className="size-4" />
-              </div>
-              <div className="rounded-2xl rounded-tl-xs p-3.5 bg-muted/40 border text-muted-foreground flex items-center gap-2">
-                <RefreshCw className="size-3.5 animate-spin text-primary" />
-                <span>{isTe ? 'రుణ సలహాదారు విశ్లేషిస్తున్నారు...' : 'Advisor is analyzing your loan figures...'}</span>
-              </div>
-            </div>
-          )}
-
-          <div ref={chatBottomRef} />
-        </div>
-
-        {/* Suggested Quick Question Pills */}
-        <div className="px-4 py-2.5 bg-muted/20 border-t flex flex-wrap gap-1.5 text-xs">
-          <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mr-1">
-            <HelpCircle className="size-3" />
-            {isTe ? 'సూచనలు:' : 'Suggestions:'}
-          </span>
-          {SUGGESTED_QUESTIONS.map((q, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleSendMessage(q)}
-              disabled={isChatLoading}
-              className="px-2.5 py-1 rounded-full border bg-background text-[11px] text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-
-        {/* Voice Error Notification */}
-        {voiceError && (
-          <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20 text-destructive text-xs flex items-center justify-between animate-in fade-in">
-            <span className="flex items-center gap-1.5">
-              <AlertTriangle className="size-3.5 shrink-0" />
-              {voiceError}
-            </span>
-            <button
-              type="button"
-              onClick={() => setVoiceError(null)}
-              className="text-xs underline font-semibold ml-2 cursor-pointer shrink-0"
-            >
-              {isTe ? 'మూసివేయి' : 'Dismiss'}
-            </button>
-          </div>
-        )}
-
-        {/* Input Bar */}
-        <div className="p-3 sm:p-4 border-t bg-card flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleVoiceInput}
-            title={isListening ? (isTe ? 'వాయిస్ నిలిపివేయండి' : 'Stop listening') : (isTe ? 'వాయిస్ ద్వారా అడగండి' : 'Speak your question')}
-            className={`cursor-pointer shrink-0 transition-all ${
-              isListening ? 'bg-destructive text-destructive-foreground animate-pulse ring-2 ring-destructive/40' : ''
-            }`}
-          >
-            {isListening ? <MicOff className="size-4" /> : <Mic className="size-4 text-primary" />}
-          </Button>
-
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder={
-              isListening
-                ? (isTe ? 'వింటున్నాము... మాట్లాడండి...' : 'Listening... speak your question...')
-                : (isTe
-                    ? 'రుణ వివరాలు, వడ్డీ లేదా బ్యాంక్ నిబంధనల గురించి అడగండి...'
-                    : 'Ask anything about your loan numbers, interest rates, or schemes...')
-            }
-            disabled={isChatLoading}
-            className="flex-1 rounded-xl border bg-background px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
-          />
-
-          <Button
-            size="sm"
-            onClick={() => handleSendMessage()}
-            disabled={!inputText.trim() || isChatLoading}
-            className="cursor-pointer shrink-0 gap-1.5 text-xs"
-          >
-            <Send className="size-3.5" />
-            <span className="hidden sm:inline">{isTe ? 'పంపు' : 'Send'}</span>
-          </Button>
-        </div>
-      </section>
-
-      {/* 7. Repayment Proportion & Total Outlay Visualization */}
+      {/* 6. Repayment Proportion & Total Outlay Visualization */}
       <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b mb-4">
           <div>

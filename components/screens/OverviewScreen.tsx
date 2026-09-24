@@ -28,6 +28,7 @@ import {
   Building2,
   Sliders,
   DollarSign,
+  Cpu,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -277,10 +278,12 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
           </div>
           <div className="mt-3">
             <p className="text-2xl font-bold font-sora tracking-tight text-foreground">
-              <AnimatedNumber value={totalIncome || 45700} formatter={formatINR} />
+              <AnimatedNumber value={totalIncome} formatter={formatINR} />
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {isTe ? 'ధృవీకరించబడిన లాగ్‌బుక్ రికార్డులు' : 'Recorded enterprise income'}
+              {entries.length > 0
+                ? (isTe ? 'ధృవీకరించబడిన లాగ్‌బుక్ రికార్డులు' : 'Recorded enterprise income')
+                : (isTe ? 'ఇంకా ఎంట్రీలు నమోదు కాలేదు' : 'No entries recorded yet')}
             </p>
           </div>
         </div>
@@ -297,10 +300,12 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
           </div>
           <div className="mt-3">
             <p className="text-2xl font-bold font-sora tracking-tight text-foreground">
-              <AnimatedNumber value={totalExpenses || 12700} formatter={formatINR} />
+              <AnimatedNumber value={totalExpenses} formatter={formatINR} />
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {isTe ? 'నిర్వహణ మరియు ముడిసరుకు ఖర్చులు' : 'Operational & input overhead'}
+              {entries.length > 0
+                ? (isTe ? 'నిర్వహణ మరియు ముడిసరుకు ఖర్చులు' : 'Operational & input overhead')
+                : (isTe ? 'ఖర్చుల రికార్డులు లేవు' : 'No recorded expenses')}
             </p>
           </div>
         </div>
@@ -312,15 +317,17 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
               {isTe ? 'నికర మిగులు' : 'Net Cash Surplus'}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
-              {Math.round((netCashFlow / (totalIncome || 1)) * 100)}% {isTe ? 'మార్జిన్' : 'Margin'}
+              {totalIncome > 0 ? Math.round((netCashFlow / totalIncome) * 100) : 0}% {isTe ? 'మార్జిన్' : 'Margin'}
             </span>
           </div>
           <div className="mt-3">
-            <p className="text-2xl font-bold font-sora tracking-tight text-emerald-700 dark:text-emerald-400">
-              <AnimatedNumber value={netCashFlow || 33000} formatter={formatINR} />
+            <p className={`text-2xl font-bold font-sora tracking-tight ${netCashFlow >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600'}`}>
+              <AnimatedNumber value={netCashFlow} formatter={formatINR} />
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {isTe ? 'రుణ వాయిదాల చెల్లింపు సామర్థ్యం' : 'Debt servicing cash cushion'}
+              {entries.length > 0
+                ? (isTe ? 'రుణ వాయిదాల చెల్లింపు సామర్థ్యం' : 'Debt servicing cash cushion')
+                : (isTe ? 'లాగ్‌బుక్‌లో రికార్డు చేయండి' : 'Awaiting logbook entries')}
             </p>
           </div>
         </div>
@@ -556,6 +563,51 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
             >
               {isTe ? 'ఆర్థిక సలహాదారు' : 'Finance Advisor'}
             </button>
+          </div>
+        </div>
+
+        {/* RuralCred Grounded Intelligence Flow Architecture Banner */}
+        <div className="mt-5 p-4 rounded-2xl bg-card border border-border/80 shadow-2xs">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] uppercase font-bold tracking-widest text-primary flex items-center gap-1.5">
+              <Cpu className="size-3.5" />
+              {isTe ? 'రూరల్‌క్రెడ్ ఇంటెలిజెన్స్ ఆర్కిటెక్చర్' : 'RuralCred Intelligence Flow'}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              Vector Grounding + Deterministic Logic
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
+            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center">
+              <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-1 text-[11px] font-bold">1</div>
+              <p className="text-xs font-bold text-foreground">{isTe ? 'యూజర్ లెడ్జర్' : 'Enterprise Data'}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{isTe ? 'లాగ్‌బుక్ & ఈక్విటీ' : 'Cash flow & capital'}</p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center">
+              <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-1 text-[11px] font-bold">2</div>
+              <p className="text-xs font-bold text-foreground">{isTe ? 'స్థానిక మార్కెట్ డేటా' : 'Rural Grounding'}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{(profile.location || 'Warangal').split(',')[0]} Mandi</p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 flex flex-col items-center">
+              <div className="size-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center mb-1 text-[11px] font-bold">3</div>
+              <p className="text-xs font-bold text-primary">{isTe ? 'ఖచ్చితమైన గణితం' : 'Deterministic Math'}</p>
+              <p className="text-[10px] text-primary/80 mt-0.5">{isTe ? 'రుణ అర్హత & EMI' : 'Cost, EMI & routing'}</p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center">
+              <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-1 text-[11px] font-bold">4</div>
+              <p className="text-xs font-bold text-foreground">{isTe ? 'జెమినీ 2.5 విశ్లేషణ' : 'Gemini AI Analysis'}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{isTe ? 'SWOT & అవకాశాలు' : 'SWOT & pricing band'}</p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col items-center col-span-2 md:col-span-1">
+              <div className="size-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center mb-1 text-[11px] font-bold">5</div>
+              <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">{isTe ? 'ఆచరణాత్మక వ్యూహం' : 'Actionable Plan'}</p>
+              <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400 mt-0.5">{isTe ? 'బ్యాంక్ లోన్ ప్రణాళిక' : 'Bank-ready credit'}</p>
+            </div>
           </div>
         </div>
 

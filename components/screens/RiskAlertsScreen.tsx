@@ -110,10 +110,10 @@ export function RiskAlertsScreen() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="rounded bg-rose-200 text-rose-900 px-1.5 py-0.5 text-[10px] font-bold">
+                        <span className="rounded bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-100 px-1.5 py-0.5 text-[10px] font-bold">
                           {risk.ruleCode}
                         </span>
-                        <h4 className="font-bold font-sora text-sm text-rose-950">
+                        <h4 className="font-bold font-sora text-sm text-rose-950 dark:text-rose-200">
                           {isTe ? risk.titleTe : risk.title}
                         </h4>
                       </div>
@@ -125,7 +125,7 @@ export function RiskAlertsScreen() {
                     variant="outline"
                     onClick={() => handleFetchAiExplanation(risk)}
                     disabled={isExplaining}
-                    className="flex items-center gap-1.5 bg-card hover:bg-muted font-semibold text-xs border-rose-300"
+                    className="flex items-center gap-1.5 bg-card hover:bg-muted font-semibold text-xs border-rose-300 dark:border-rose-800 cursor-pointer"
                   >
                     <Sparkles className="size-3.5 text-primary" />
                     <span>{isExplaining ? t.aiExplaining : (isTe ? 'AI పరిష్కారాన్ని చూడండి' : 'Explain & Generate Action Plan')}</span>
@@ -133,9 +133,9 @@ export function RiskAlertsScreen() {
                 </div>
 
                 {/* Deterministic Reason */}
-                <div className="rounded-xl border border-rose-200 bg-white p-3.5 text-xs text-rose-900 leading-relaxed">
+                <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-card p-3.5 text-xs text-rose-950 dark:text-rose-200 leading-relaxed">
                   <p className="font-semibold">{isTe ? 'నియమాధారిత గణాంక కారణం:' : 'Deterministic Detection Reason:'}</p>
-                  <p className="mt-0.5 text-rose-800">{isTe ? risk.reasonTe : risk.reason}</p>
+                  <p className="mt-0.5 text-rose-900/90 dark:text-rose-300/90">{isTe ? risk.reasonTe : risk.reason}</p>
                 </div>
 
                 {/* Localized AI Explanation Output */}

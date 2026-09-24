@@ -691,576 +691,644 @@ export function BusinessAdvisorScreen() {
         <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 flex flex-col items-center justify-center text-center gap-3">
           <AlertCircle className="size-8 text-destructive" />
           <p className="text-sm font-semibold text-destructive">{error}</p>
-          <Button size="sm" onClick={() => runAnalysis()} className="mt-2">
+          <Button size="sm" onClick={() => runAnalysis()} className="mt-2 cursor-pointer">
             <RefreshCw className="size-3.5 mr-1.5" />
             {isTe ? 'మళ్ళీ ప్రయత్నించండి' : 'Retry Advisory'}
           </Button>
         </div>
       )}
 
-      {/* CORE FEATURE: Interactive Business Advisory Chat Thread */}
-      {!loading && messages.length > 0 && (
-        <div className="rounded-2xl border bg-card shadow-xs overflow-hidden flex flex-col page-enter">
-          {/* Chat Header */}
-          <div className="p-4 sm:px-6 sm:py-4 border-b bg-muted/20 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-xs">
-                <Bot className="size-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold font-sora text-foreground">
-                    {isTe ? 'ఇంటరాక్టివ్ వ్యాపార సలహాదారు (సంభాషణ)' : 'Interactive Advisory Conversation'}
-                  </h3>
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                    <Sparkles className="size-2.5" />
-                    Multi-Turn Context
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {isTe
-                    ? `${selectedLocation} • ${selectedCategory} కోసం నిరంతర RAG సంభాషణ`
-                    : `Active advisory dialogue for ${selectedCategory} in ${selectedLocation}`}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => runAnalysis(selectedLocation, selectedCategory, selectedSeason, true)}
-                title={isTe ? 'సంభాషణను రీసెట్ చేయండి' : 'Clear and reset conversation'}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-              >
-                <Trash2 className="size-3.5" />
-                <span className="hidden sm:inline">{isTe ? 'రీసెట్' : 'Reset'}</span>
-              </button>
-            </div>
+      {/* Dynamic Multi-Step AI Thinking State (Initial Full-screen Load) */}
+      {loading && messages.length === 0 && (
+        <div className="rounded-2xl border bg-card p-8 sm:p-10 shadow-xs flex flex-col items-center justify-center min-h-[380px] page-enter">
+          <div className="relative flex items-center justify-center mb-4">
+            <div className="size-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            <Sparkles className="size-7 text-primary absolute animate-pulse" />
           </div>
 
-          {/* Chat Message Stream */}
-          <div className="p-4 sm:p-6 flex flex-col gap-4 max-h-[540px] overflow-y-auto bg-background/50">
-            {messages.map((msg, idx) => {
-              const isUser = msg.role === 'user';
-              const turnData = msg.data;
-              const isExpanded = Boolean(expandedTurns[msg.id]);
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary mb-2">
+              <span className="size-2 rounded-full bg-primary animate-ping" />
+              <span>Multi-Agent Synthesis</span>
+            </div>
+            <h3 className="text-lg font-bold font-sora text-foreground">
+              {t.analyzingText}
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground max-w-md">
+              {isTe
+                ? 'మీ ప్రాంతపు జనాభా గిరాకీ, పోటీదారుల సంఖ్య మరియు ధరల బెంచ్‌మార్క్‌లను క్రోడీకరిస్తున్నాము...'
+                : 'Cross-referencing rural consumer density, competitor presence, and typical margin thresholds...'}
+            </p>
+          </div>
 
-              if (isUser) {
-                return (
-                  <div key={msg.id} className="flex justify-end items-end gap-2.5 max-w-[85%] self-end message-enter">
-                    <div className="flex flex-col items-end">
-                      <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-xs px-4 py-2.5 text-xs sm:text-sm font-medium shadow-xs leading-relaxed">
-                        {msg.content}
-                      </div>
-                      <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                        {msg.timestamp}
-                      </span>
-                    </div>
-                    <div className="grid size-7 place-items-center rounded-full bg-primary/20 text-primary text-xs shrink-0 mb-4">
-                      <User className="size-3.5" />
-                    </div>
-                  </div>
-                );
-              }
+          {/* Interactive Step Visualizer */}
+          <div className="w-full max-w-lg space-y-3 bg-muted/30 rounded-xl p-4 border border-border/50">
+            {AI_PIPELINE_STEPS.map((step, idx) => {
+              const isCompleted = activeStep > idx;
+              const isCurrent = activeStep === idx;
+              const StepIcon = step.icon;
 
-              // Assistant message
               return (
-                <div key={msg.id} className="flex items-start gap-2.5 max-w-[92%] self-start message-enter">
-                  <div className="grid size-8 place-items-center rounded-xl bg-primary/15 text-primary shrink-0 mt-1">
-                    <Sparkles className="size-4" />
+                <div
+                  key={step.step}
+                  className={`flex items-start gap-3 p-2.5 rounded-lg transition-all duration-300 ${
+                    isCurrent
+                      ? 'bg-primary/10 border border-primary/30 shadow-xs'
+                      : isCompleted
+                      ? 'opacity-80 bg-background/50'
+                      : 'opacity-40'
+                  }`}
+                >
+                  <div
+                    className={`size-7 rounded-lg grid place-items-center text-xs font-bold shrink-0 mt-0.5 ${
+                      isCompleted
+                        ? 'bg-emerald-500 text-white'
+                        : isCurrent
+                        ? 'bg-primary text-primary-foreground animate-pulse'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {isCompleted ? <CheckCircle2 className="size-4" /> : <StepIcon className="size-4" />}
                   </div>
-
-                  <div className="flex-1 min-w-0 flex flex-col gap-2">
-                    <div
-                      className={`rounded-2xl rounded-tl-xs p-4 sm:p-5 border shadow-xs leading-relaxed text-xs sm:text-sm ${
-                        msg.isError
-                          ? 'border-destructive/40 bg-destructive/5 text-destructive'
-                          : 'bg-card text-foreground border-border/80'
-                      }`}
-                    >
-                      {/* Top metadata tags */}
-                      {!msg.isError && (
-                        <div className="flex flex-wrap items-center gap-2 mb-2 pb-2 border-b border-border/40">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                            RuralCred Advisor
-                          </span>
-                          {turnData?.providerUsed && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-                              <Cpu className="size-2.5" />
-                              {turnData.providerUsed}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground ml-auto">
-                            {msg.timestamp}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Main Message Text */}
-                      <p className="font-normal text-foreground whitespace-pre-line leading-relaxed">
-                        {msg.content}
-                      </p>
-
-                      {/* Error state with retry action */}
-                      {msg.isError && (
-                        <div className="mt-3 flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleRetry(idx)}
-                            className="h-8 text-xs cursor-pointer gap-1.5"
-                          >
-                            <RefreshCw className="size-3.5" />
-                            {isTe ? 'మళ్ళీ ప్రయత్నించండి' : 'Retry Query'}
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Grounded Key Metrics Mini-Bar */}
-                      {!msg.isError && turnData && (
-                        <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
-                          <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-lg">
-                            <Tag className="size-3 text-primary shrink-0" />
-                            <span className="text-muted-foreground">Price:</span>
-                            <span className="font-bold text-foreground truncate">
-                              {turnData.pricingSuggestion.recommendedBand}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-lg">
-                            <TrendingUp className="size-3 text-emerald-600 shrink-0" />
-                            <span className="text-muted-foreground">Target Margin:</span>
-                            <span className="font-bold text-emerald-700 dark:text-emerald-300">
-                              {turnData.pricingSuggestion.marginTarget}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-lg">
-                            <Users className="size-3 text-amber-600 shrink-0" />
-                            <span className="text-muted-foreground">Density:</span>
-                            <span className="font-bold text-foreground">
-                              {turnData.competitorDensity.densityLevel}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Expandable SWOT / Diagnostics for this turn */}
-                      {!msg.isError && turnData && (
-                        <div className="mt-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedTurns((prev) => ({ ...prev, [msg.id]: !isExpanded }))
-                            }
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-                          >
-                            {isExpanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-                            <span>
-                              {isExpanded
-                                ? isTe
-                                  ? 'వివరణాత్మక SWOT దాచండి'
-                                  : 'Hide Turn Diagnostics'
-                                : isTe
-                                ? 'ఈ ప్రశ్నకు సంబంధించిన SWOT & వ్యూహం చూడండి'
-                                : 'View Turn SWOT & Strategic Moat'}
-                            </span>
-                          </button>
-
-                          {isExpanded && (
-                            <div className="mt-2 p-3 rounded-xl bg-muted/30 border border-border/50 text-xs space-y-2 page-enter">
-                              <p className="font-semibold text-foreground">
-                                {isTe ? 'అవకాశ విశ్లేషణ:' : 'Opportunity Analysis:'}{' '}
-                                <span className="font-normal text-muted-foreground">
-                                  {turnData.opportunityAnalysis.overview}
-                                </span>
-                              </p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-border/40">
-                                <div>
-                                  <span className="font-semibold text-emerald-700 dark:text-emerald-300 block mb-1">
-                                    {isTe ? 'బలాలు (Strengths):' : 'Key Strengths:'}
-                                  </span>
-                                  <ul className="list-disc list-inside space-y-0.5 text-muted-foreground text-[11px]">
-                                    {turnData.swot.strengths.slice(0, 2).map((s, i) => (
-                                      <li key={i}>{s}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                <div>
-                                  <span className="font-semibold text-amber-700 dark:text-amber-300 block mb-1">
-                                    {isTe ? 'వ్యూహాత్మక రక్షణ (Moat):' : 'Mitigation Strategy:'}
-                                  </span>
-                                  <p className="text-muted-foreground text-[11px]">
-                                    {turnData.competitorDensity.mitigationStrategy}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Retrieved Sources Badge */}
-                    {!msg.isError && turnData?.sourcesUsed && turnData.sourcesUsed.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 px-1">
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <Database className="size-2.5 text-primary" />
-                          RAG:
-                        </span>
-                        {turnData.sourcesUsed.slice(0, 2).map((src, i) => (
-                          <span
-                            key={i}
-                            className="text-[9px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded border"
-                          >
-                            {src}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold ${isCurrent ? 'text-primary' : 'text-foreground'}`}>
+                      {isTe ? step.titleTe : step.titleEn}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {isTe ? step.detailTe : step.detailEn}
+                    </p>
                   </div>
+                  {isCurrent && (
+                    <span className="text-[10px] font-bold text-primary animate-pulse shrink-0">
+                      Processing...
+                    </span>
+                  )}
                 </div>
               );
             })}
-
-            {/* Follow-up Typing / Loading Indicator */}
-            {isFollowUpLoading && (
-              <div className="flex items-start gap-2.5 self-start page-enter">
-                <div className="grid size-8 place-items-center rounded-xl bg-primary/15 text-primary shrink-0 mt-1 animate-pulse">
-                  <Sparkles className="size-4" />
-                </div>
-                <div className="rounded-2xl rounded-tl-xs p-4 border border-primary/30 bg-primary/5 shadow-xs flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
-                    <span className="size-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
-                    <span className="size-2 rounded-full bg-primary animate-bounce" />
-                  </div>
-                  <span className="text-xs text-primary font-medium">
-                    {isTe
-                      ? `${selectedLocation} మండి డేటాను మరియు RAG నాలెడ్జ్ బేస్‌ను శోధిస్తున్నాము...`
-                      : `Querying ChromaDB records & generating hyper-local context for ${selectedLocation}...`}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div ref={chatBottomRef} />
           </div>
-
-          {/* Suggested Follow-up Question Chips */}
-          <div className="px-4 py-3 border-t bg-muted/10">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2">
-              <Sparkles className="size-3 text-primary" />
-              <span>{isTe ? 'సూచించిన తదుపరి ప్రశ్నలు (1-క్లిక్):' : 'Suggested follow-up questions:'}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {getSuggestedQuestions().map((q, idx) => {
-                const text = isTe ? q.te : q.en;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    disabled={isFollowUpLoading}
-                    onClick={() => handleSendFollowUp(text)}
-                    className="rounded-lg border bg-card px-2.5 py-1.5 text-[11px] font-medium text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors shadow-2xs cursor-pointer text-left disabled:opacity-50"
-                  >
-                    {text}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Voice Error Notification */}
-          {voiceError && (
-            <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20 text-destructive text-xs flex items-center justify-between animate-in fade-in">
-              <span className="flex items-center gap-1.5">
-                <AlertCircle className="size-3.5 shrink-0" />
-                {voiceError}
-              </span>
-              <button
-                type="button"
-                onClick={() => setVoiceError(null)}
-                className="text-xs underline font-semibold ml-2 cursor-pointer shrink-0"
-              >
-                {isTe ? 'మూసివేయి' : 'Dismiss'}
-              </button>
-            </div>
-          )}
-
-          {/* Chat Input Bar with Text and Voice Input */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendFollowUp(inputText);
-            }}
-            className="p-3 sm:p-4 border-t bg-card flex items-center gap-2"
-          >
-            <button
-              type="button"
-              onClick={handleToggleVoice}
-              title={isListening ? (isTe ? 'వాయిస్ నిలిపివేయండి' : 'Stop listening') : (isTe ? 'వాయిస్ ఇన్‌పుట్' : 'Voice input (Telugu / English)')}
-              className={`grid size-10 place-items-center rounded-xl border transition-all cursor-pointer shrink-0 ${
-                isListening
-                  ? 'bg-rose-500 text-white border-rose-600 animate-pulse ring-4 ring-rose-500/20'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted border-border/80'
-              }`}
-            >
-              {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
-            </button>
-
-            <div className="relative flex-1">
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={
-                  isListening
-                    ? isTe
-                      ? 'వింటున్నాము... మాట్లాడండి...'
-                      : 'Listening... speak your question...'
-                    : isTe
-                    ? 'ఉదా: "మరో గ్రామానికి విస్తరిస్తే మార్కెట్ ఎలా ఉంటుంది?"'
-                    : 'Ask a follow-up (e.g., "What if I expand to the next village?")...'
-                }
-                disabled={isFollowUpLoading}
-                className="w-full rounded-xl border bg-background px-4 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isFollowUpLoading || !inputText.trim()}
-              className="h-10 px-4 rounded-xl font-semibold gap-1.5 cursor-pointer shrink-0"
-            >
-              <Send className="size-3.5" />
-              <span className="hidden sm:inline">{isTe ? 'పంపండి' : 'Send'}</span>
-            </Button>
-          </form>
         </div>
       )}
 
-      {/* Structured Viability & Diagnostics Breakdown for Active Turn */}
-      {!loading && data && (
-        <div className="flex flex-col gap-6 page-enter mt-2">
-          <div className="flex items-center justify-between pb-2 border-b">
-            <div className="flex items-center gap-2">
-              <Target className="size-4 text-primary" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground font-sora">
-                {isTe ? 'తాజా విశ్లేషణ సమగ్ర వివరాలు' : 'Active Market Diagnostics & SWOT'}
-              </h3>
-            </div>
-            <span className="text-[11px] text-muted-foreground">
-              {selectedLocation} • {selectedCategory}
-            </span>
-          </div>
-
-          {/* Grid: Opportunity & Competitor Density */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Opportunity Analysis */}
-            <section className="rounded-2xl border bg-card p-6 shadow-xs flex flex-col justify-between hover-lift">
-              <div>
-                <div className="flex items-center justify-between pb-3 border-b">
-                  <div className="flex items-center gap-2">
-                    <Target className="size-4 text-primary" />
-                    <h3 className="font-semibold font-sora text-sm">{t.opportunityAnalysis}</h3>
+      {/* CORE FEATURE: Business Intelligence Workspace (Split Layout) */}
+      {(!loading || messages.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT COLUMN: Interactive Conversation Stream */}
+          <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+            <div className="rounded-2xl border bg-card shadow-xs overflow-hidden flex flex-col">
+              {/* Chat Header */}
+              <div className="p-4 sm:px-6 sm:py-4 border-b bg-muted/20 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-xs">
+                    <Bot className="size-5" />
                   </div>
-                  <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    {dictionary.aiEstimateBadge}
-                  </span>
-                </div>
-                <p className="mt-3 text-xs text-foreground leading-relaxed">
-                  {data.opportunityAnalysis.overview}
-                </p>
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {isTe ? 'ప్రధాన అవకాశ కారకాలు' : 'Core Value Drivers'}
-                  </p>
-                  {data.opportunityAnalysis.primaryDrivers.map((driver, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-foreground bg-muted/30 p-2 rounded-lg">
-                      <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span className="font-medium">{driver}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold font-sora text-foreground">
+                        {isTe ? 'వ్యాపార సలహాదారు సంభాషణ' : 'Business Advisory Dialogue'}
+                      </h3>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        <Sparkles className="size-2.5" />
+                        RAG Grounded
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-[11px] text-amber-950 dark:text-amber-200">
-                <span className="font-bold">
-                  {isTe ? 'కాలానుగుణ & మండి ధరల ట్రెండ్:' : 'Seasonality & Mandi Price Trend:'}
-                </span>{' '}
-                {data.opportunityAnalysis.seasonalOpportunity}
-              </div>
-            </section>
-
-            {/* Competitor Density */}
-            <section className="rounded-2xl border bg-card p-6 shadow-xs flex flex-col justify-between hover-lift">
-              <div>
-                <div className="flex items-center justify-between pb-3 border-b">
-                  <div className="flex items-center gap-2">
-                    <Users className="size-4 text-primary" />
-                    <h3 className="font-semibold font-sora text-sm">{t.competitorDensity}</h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      {isTe
+                        ? `${selectedLocation} • ${selectedCategory} కోసం నిరంతర సంభాషణ`
+                        : `Contextual RAG session for ${selectedCategory} in ${selectedLocation}`}
+                    </p>
                   </div>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                      data.competitorDensity.densityLevel === 'High'
-                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
-                    }`}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => runAnalysis(selectedLocation, selectedCategory, selectedSeason, true)}
+                    title={isTe ? 'సంభాషణను రీసెట్ చేయండి' : 'Clear and reset conversation'}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
                   >
-                    {data.competitorDensity.densityLevel} Density
-                  </span>
+                    <Trash2 className="size-3.5" />
+                    <span className="hidden sm:inline">{isTe ? 'రీసెట్' : 'Reset'}</span>
+                  </button>
                 </div>
-                <p className="mt-3 text-xs text-foreground leading-relaxed">
-                  {data.competitorDensity.description}
-                </p>
               </div>
 
-              <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <p className="text-xs font-bold text-primary flex items-center gap-1.5">
-                  <ShieldCheck className="size-4" />
-                  {isTe ? 'విజయవంతమైన వ్యాపార వ్యూహం (Mitigation Strategy):' : 'Moat & Differentiation Strategy:'}
-                </p>
-                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed font-medium">
-                  {data.competitorDensity.mitigationStrategy}
-                </p>
-              </div>
-            </section>
-          </div>
+              {/* Chat Message Stream */}
+              <div className="p-4 sm:p-6 flex flex-col gap-4 max-h-[600px] overflow-y-auto bg-background/50">
+                {messages.map((msg, idx) => {
+                  const isUser = msg.role === 'user';
+                  const turnData = msg.data;
+                  const isExpanded = Boolean(expandedTurns[msg.id]);
 
-          {/* SWOT Grid */}
-          <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
-            <div className="flex items-center justify-between pb-4 border-b">
-              <div>
-                <h3 className="font-semibold font-sora text-base">{t.swotAnalysis}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {isTe
-                    ? 'వ్యాపార బలాలు, బలహీనతలు, అవకాశాలు మరియు సవాళ్ల సమగ్ర విశ్లేషణ'
-                    : 'Balanced diagnostic across internal capabilities and external market dynamics'}
-                </p>
-              </div>
-              <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                {dictionary.aiEstimateBadge}
-              </span>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Strengths */}
-              <div className="rounded-xl border border-emerald-300/80 bg-emerald-500/5 p-4 hover-lift">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold font-sora text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
-                    {t.strengths}
-                  </p>
-                  <span className="size-2 rounded-full bg-emerald-500" />
-                </div>
-                <ul className="mt-3 space-y-2 text-xs text-foreground">
-                  {data.swot.strengths.map((s, idx) => (
-                    <li key={idx} className="flex items-start gap-1.5">
-                      <span className="text-emerald-600 font-bold shrink-0">•</span>
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Weaknesses */}
-              <div className="rounded-xl border border-amber-300/80 bg-amber-500/5 p-4 hover-lift">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold font-sora text-amber-800 dark:text-amber-300 uppercase tracking-wider">
-                    {t.weaknesses}
-                  </p>
-                  <span className="size-2 rounded-full bg-amber-500" />
-                </div>
-                <ul className="mt-3 space-y-2 text-xs text-foreground">
-                  {data.swot.weaknesses.map((w, idx) => (
-                    <li key={idx} className="flex items-start gap-1.5">
-                      <span className="text-amber-600 font-bold shrink-0">•</span>
-                      <span>{w}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Opportunities */}
-              <div className="rounded-xl border border-blue-300/80 bg-blue-500/5 p-4 hover-lift">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold font-sora text-blue-800 dark:text-blue-300 uppercase tracking-wider">
-                    {t.opportunities}
-                  </p>
-                  <span className="size-2 rounded-full bg-blue-500" />
-                </div>
-                <ul className="mt-3 space-y-2 text-xs text-foreground">
-                  {data.swot.opportunities.map((o, idx) => (
-                    <li key={idx} className="flex items-start gap-1.5">
-                      <span className="text-blue-600 font-bold shrink-0">•</span>
-                      <span>{o}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Threats */}
-              <div className="rounded-xl border border-rose-300/80 bg-rose-500/5 p-4 hover-lift">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold font-sora text-rose-800 dark:text-rose-300 uppercase tracking-wider">
-                    {t.threats}
-                  </p>
-                  <span className="size-2 rounded-full bg-rose-500" />
-                </div>
-                <ul className="mt-3 space-y-2 text-xs text-foreground">
-                  {data.swot.threats.map((th, idx) => (
-                    <li key={idx} className="flex items-start gap-1.5">
-                      <span className="text-rose-600 font-bold shrink-0">•</span>
-                      <span>{th}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* Benchmark Cost Allocation & Assumptions */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Benchmark OPEX Breakdown */}
-            {data.groundedFacts?.benchmarkOpex && (
-              <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
-                <h3 className="font-semibold font-sora text-sm pb-2 border-b">
-                  {isTe ? 'స్థానిక సగటు వ్యయాల విభజన (Benchmark OPEX)' : 'District Benchmark Cost Breakdown'}
-                </h3>
-                <div className="mt-4 space-y-3.5">
-                  {data.groundedFacts.benchmarkOpex.map((cost, idx) => (
-                    <div key={idx}>
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="font-medium text-foreground">{cost.item}</span>
-                        <span className="font-bold text-primary">{cost.percentage}%</span>
+                  if (isUser) {
+                    return (
+                      <div key={msg.id} className="flex justify-end items-end gap-2.5 max-w-[85%] self-end message-enter">
+                        <div className="flex flex-col items-end">
+                          <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-xs px-4 py-2.5 text-xs sm:text-sm font-medium shadow-xs leading-relaxed">
+                            {msg.content}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                            {msg.timestamp}
+                          </span>
+                        </div>
+                        <div className="grid size-7 place-items-center rounded-full bg-primary/20 text-primary text-xs shrink-0 mb-4">
+                          <User className="size-3.5" />
+                        </div>
                       </div>
-                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    );
+                  }
+
+                  // Assistant message
+                  return (
+                    <div key={msg.id} className="flex items-start gap-2.5 max-w-[95%] self-start message-enter">
+                      <div className="grid size-8 place-items-center rounded-xl bg-primary/15 text-primary shrink-0 mt-1">
+                        <Sparkles className="size-4" />
+                      </div>
+
+                      <div className="flex-1 min-w-0 flex flex-col gap-2">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500"
-                          style={{ width: `${cost.percentage}%` }}
-                        />
+                          className={`rounded-2xl rounded-tl-xs p-4 sm:p-5 border shadow-xs leading-relaxed text-xs sm:text-sm ${
+                            msg.isError
+                              ? 'border-destructive/40 bg-destructive/5 text-destructive'
+                              : 'bg-card text-foreground border-border/80'
+                          }`}
+                        >
+                          {/* Top metadata tags */}
+                          {!msg.isError && (
+                            <div className="flex flex-wrap items-center gap-2 mb-2 pb-2 border-b border-border/40">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                                RuralCred Business Advisor
+                              </span>
+                              {turnData?.providerUsed && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                                  <Cpu className="size-2.5" />
+                                  {turnData.providerUsed}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-muted-foreground ml-auto">
+                                {msg.timestamp}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Main Message Text */}
+                          <p className="font-normal text-foreground whitespace-pre-line leading-relaxed">
+                            {msg.content}
+                          </p>
+
+                          {/* Error state with retry action */}
+                          {msg.isError && (
+                            <div className="mt-3 flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleRetry(idx)}
+                                className="h-8 text-xs cursor-pointer gap-1.5"
+                              >
+                                <RefreshCw className="size-3.5" />
+                                {isTe ? 'మళ్ళీ ప్రయత్నించండి' : 'Retry Query'}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Grounded Key Metrics Mini-Bar */}
+                          {!msg.isError && turnData && (
+                            <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                              <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1.5 rounded-lg">
+                                <Tag className="size-3 text-primary shrink-0" />
+                                <span className="text-muted-foreground">Price:</span>
+                                <span className="font-bold text-foreground truncate">
+                                  {turnData.pricingSuggestion.recommendedBand}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1.5 rounded-lg">
+                                <TrendingUp className="size-3 text-emerald-600 shrink-0" />
+                                <span className="text-muted-foreground">Margin:</span>
+                                <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                                  {turnData.pricingSuggestion.marginTarget}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1.5 rounded-lg">
+                                <Users className="size-3 text-amber-600 shrink-0" />
+                                <span className="text-muted-foreground">Density:</span>
+                                <span className="font-bold text-foreground">
+                                  {turnData.competitorDensity.densityLevel}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Expandable Turn Diagnostics Toggle */}
+                          {!msg.isError && turnData && (
+                            <div className="mt-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedTurns((prev) => ({ ...prev, [msg.id]: !isExpanded }))
+                                }
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                              >
+                                {isExpanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                                <span>
+                                  {isExpanded
+                                    ? isTe
+                                      ? 'వివరణాత్మక డయాగ్నోస్టిక్స్ దాచండి'
+                                      : 'Hide Turn Diagnostics'
+                                    : isTe
+                                    ? 'ఈ ప్రశ్నకు సంబంధించిన వ్యూహం & వివరణలు'
+                                    : 'View Turn Strategy & Demand Drivers'}
+                                </span>
+                              </button>
+
+                              {isExpanded && (
+                                <div className="mt-2 p-3 rounded-xl bg-muted/30 border border-border/50 text-xs space-y-2 page-enter">
+                                  <p className="font-semibold text-foreground">
+                                    {isTe ? 'అవకాశ విశ్లేషణ:' : 'Opportunity Analysis:'}{' '}
+                                    <span className="font-normal text-muted-foreground">
+                                      {turnData.opportunityAnalysis.overview}
+                                    </span>
+                                  </p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-border/40">
+                                    <div>
+                                      <span className="font-semibold text-emerald-700 dark:text-emerald-300 block mb-1">
+                                        {isTe ? 'బలాలు (Strengths):' : 'Key Strengths:'}
+                                      </span>
+                                      <ul className="list-disc list-inside space-y-0.5 text-muted-foreground text-[11px]">
+                                        {turnData.swot.strengths.slice(0, 2).map((s, i) => (
+                                          <li key={i}>{s}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div>
+                                      <span className="font-semibold text-amber-700 dark:text-amber-300 block mb-1">
+                                        {isTe ? 'వ్యూహాత్మక రక్షణ (Moat):' : 'Mitigation Strategy:'}
+                                      </span>
+                                      <p className="text-muted-foreground text-[11px]">
+                                        {turnData.competitorDensity.mitigationStrategy}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Retrieved Sources Badge */}
+                        {!msg.isError && turnData?.sourcesUsed && turnData.sourcesUsed.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 px-1">
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <Database className="size-2.5 text-primary" />
+                              RAG:
+                            </span>
+                            {turnData.sourcesUsed.slice(0, 2).map((src, i) => (
+                              <span
+                                key={i}
+                                className="text-[9px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded border"
+                              >
+                                {src}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </section>
-            )}
+                  );
+                })}
 
-            {/* Assumptions & Disclaimers */}
-            <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
-              <h3 className="font-semibold font-sora text-sm pb-2 border-b">
-                {isTe ? 'విశ్లేషణ నిబంధనలు మరియు అంచనాలు' : 'Modeling Assumptions & Legal Notice'}
-              </h3>
-              <ul className="mt-4 space-y-2 text-xs text-muted-foreground">
-                {data.assumptions.map((asm, idx) => (
-                  <li key={idx} className="flex items-start gap-1.5">
-                    <span className="text-primary font-bold">•</span>
-                    <span>{asm}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-4 text-[11px] text-muted-foreground italic border-t pt-3">
-                {dictionary.aiEstimateDisclaimer}
-              </p>
-            </section>
+                {/* Follow-up Typing / Loading Indicator */}
+                {isFollowUpLoading && (
+                  <div className="flex items-start gap-2.5 self-start page-enter">
+                    <div className="grid size-8 place-items-center rounded-xl bg-primary/15 text-primary shrink-0 mt-1 animate-pulse">
+                      <Sparkles className="size-4" />
+                    </div>
+                    <div className="rounded-2xl rounded-tl-xs p-4 border border-primary/30 bg-primary/5 shadow-xs flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                        <span className="size-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                        <span className="size-2 rounded-full bg-primary animate-bounce" />
+                      </div>
+                      <span className="text-xs text-primary font-medium">
+                        {isTe
+                          ? `${selectedLocation} మండి డేటాను మరియు RAG నాలెడ్జ్ బేస్‌ను శోధిస్తున్నాము...`
+                          : `Querying ChromaDB records & generating hyper-local context for ${selectedLocation}...`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={chatBottomRef} />
+              </div>
+
+              {/* Suggested Follow-up Question Chips */}
+              <div className="px-4 py-3 border-t bg-muted/10">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2">
+                  <Sparkles className="size-3 text-primary" />
+                  <span>{isTe ? 'సూచించిన తదుపరి ప్రశ్నలు (1-క్లిక్):' : 'Suggested follow-up questions:'}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {getSuggestedQuestions().map((q, idx) => {
+                    const text = isTe ? q.te : q.en;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        disabled={isFollowUpLoading}
+                        onClick={() => handleSendFollowUp(text)}
+                        className="rounded-lg border bg-card px-2.5 py-1.5 text-[11px] font-medium text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors shadow-2xs cursor-pointer text-left disabled:opacity-50"
+                      >
+                        {text}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Voice Error Notification */}
+              {voiceError && (
+                <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20 text-destructive text-xs flex items-center justify-between animate-in fade-in">
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    {voiceError}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceError(null)}
+                    className="text-xs underline font-semibold ml-2 cursor-pointer shrink-0"
+                  >
+                    {isTe ? 'మూసివేయి' : 'Dismiss'}
+                  </button>
+                </div>
+              )}
+
+              {/* Chat Input Bar with Text and Voice Input */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendFollowUp(inputText);
+                }}
+                className="p-3 sm:p-4 border-t bg-card flex items-center gap-2"
+              >
+                <button
+                  type="button"
+                  onClick={handleToggleVoice}
+                  title={isListening ? (isTe ? 'వాయిస్ నిలిపివేయండి' : 'Stop listening') : (isTe ? 'వాయిస్ ఇన్‌పుట్' : 'Voice input (Telugu / English)')}
+                  className={`grid size-10 place-items-center rounded-xl border transition-all cursor-pointer shrink-0 ${
+                    isListening
+                      ? 'bg-rose-500 text-white border-rose-600 animate-pulse ring-4 ring-rose-500/20'
+                      : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted border-border/80'
+                  }`}
+                >
+                  {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                </button>
+
+                <div className="relative flex-1">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder={
+                      isListening
+                        ? isTe
+                          ? 'వింటున్నాము... మాట్లాడండి...'
+                          : 'Listening... speak your question...'
+                        : isTe
+                        ? 'ఉదా: "మరో గ్రామానికి విస్తరిస్తే మార్కెట్ ఎలా ఉంటుంది?"'
+                        : 'Ask a follow-up (e.g., "What if I expand to the next village?")...'
+                    }
+                    disabled={isFollowUpLoading}
+                    className="w-full rounded-xl border bg-background px-4 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isFollowUpLoading || !inputText.trim()}
+                  className="h-10 px-4 rounded-xl font-semibold gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Send className="size-3.5" />
+                  <span className="hidden sm:inline">{isTe ? 'పంపండి' : 'Send'}</span>
+                </Button>
+              </form>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Sticky Contextual Business Intelligence Panel */}
+          <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-20">
+            <div className="rounded-2xl border bg-card p-5 shadow-xs flex flex-col gap-4">
+              <div className="flex items-center justify-between pb-3 border-b">
+                <div className="flex items-center gap-2">
+                  <Target className="size-4 text-primary" />
+                  <h3 className="font-bold font-sora text-xs uppercase tracking-wider text-foreground">
+                    {isTe ? 'స్థానిక వ్యాపార స్థాన సమాచారం' : 'Local Business Context'}
+                  </h3>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  Live RAG Telemetry
+                </span>
+              </div>
+
+              {/* Active Enterprise Quick Tag */}
+              <div className="rounded-xl bg-muted/40 p-3 border flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold text-foreground">
+                    {selectedCategory}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="size-3 text-primary" />
+                    {selectedLocation} • {selectedSeason}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground">
+                    {isTe ? 'సొంత పెట్టుబడి' : 'Margin Capital'}
+                  </span>
+                  <p className="text-xs font-bold text-primary font-sora">
+                    ₹{(profile.marginCapital || 100000).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Pricing & Margin Benchmark */}
+              {data ? (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-xl border bg-muted/20 p-3">
+                    <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                      <Tag className="size-3 text-primary" />
+                      {isTe ? 'సిఫార్సు ధర' : 'Target Price'}
+                    </p>
+                    <p className="mt-1 font-bold text-foreground font-sora text-sm">
+                      {data.pricingSuggestion.recommendedBand}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                      {data.pricingSuggestion.benchmarkComparison}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border bg-muted/20 p-3">
+                    <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                      <TrendingUp className="size-3 text-emerald-600" />
+                      {isTe ? 'లక్ష్య లాభం' : 'Target Margin'}
+                    </p>
+                    <p className="mt-1 font-bold text-emerald-700 dark:text-emerald-400 font-sora text-sm">
+                      {data.pricingSuggestion.marginTarget}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                      {data.marketReach.targetSegment || 'Local rural consumers'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl border bg-muted/20 text-center text-xs text-muted-foreground">
+                  {isTe ? 'ధరల సమాచారం లోడ్ అవుతోంది...' : 'Loading pricing benchmarks...'}
+                </div>
+              )}
+
+              {/* Competitor Density & Moat */}
+              {data && (
+                <div className="rounded-xl border bg-muted/10 p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Users className="size-3.5 text-primary" />
+                      {isTe ? 'పోటీదారుల స్థాయి' : 'Competitor Density'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        data.competitorDensity.densityLevel === 'High'
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
+                      }`}
+                    >
+                      {data.competitorDensity.densityLevel} Density
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {data.competitorDensity.description}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-border/50">
+                    <span className="text-[10px] font-bold text-primary flex items-center gap-1">
+                      <ShieldCheck className="size-3" />
+                      {isTe ? 'రక్షణ వ్యూహం (Moat):' : 'Moat & Mitigation:'}
+                    </span>
+                    <p className="text-[11px] text-foreground mt-0.5 leading-relaxed font-medium">
+                      {data.competitorDensity.mitigationStrategy}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Demand Drivers & Seasonality */}
+              {data && (
+                <div className="rounded-xl border bg-amber-500/5 p-3.5 border-amber-500/20 space-y-2">
+                  <p className="text-[11px] font-bold text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
+                    <Calendar className="size-3.5 text-amber-600" />
+                    {isTe ? 'కాలానుగుణ గిరాకీ అంశాలు' : 'Seasonal Demand & Drivers'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {data.opportunityAnalysis.seasonalOpportunity}
+                  </p>
+                  <div className="space-y-1 pt-1">
+                    {data.opportunityAnalysis.primaryDrivers.slice(0, 2).map((driver, idx) => (
+                      <div key={idx} className="flex items-start gap-1.5 text-[11px] text-foreground">
+                        <CheckCircle2 className="size-3 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{driver}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Live SWOT Diagnostic Mini-Grid */}
+              {data && (
+                <div className="space-y-2 pt-2 border-t border-border/50">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold font-sora text-foreground uppercase tracking-wider">
+                      {isTe ? 'SWOT విశ్లేషణ సారాంశం' : 'SWOT Diagnostic Snapshot'}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {dictionary.aiEstimateBadge}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {/* Strengths */}
+                    <div className="p-2.5 rounded-lg border border-emerald-300/60 bg-emerald-500/5">
+                      <p className="font-bold text-emerald-800 dark:text-emerald-300 text-[10px] uppercase">
+                        {t.strengths}
+                      </p>
+                      <ul className="mt-1 space-y-1 text-muted-foreground text-[10px]">
+                        {data.swot.strengths.slice(0, 2).map((s, idx) => (
+                          <li key={idx} className="leading-tight">• {s}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Weaknesses */}
+                    <div className="p-2.5 rounded-lg border border-amber-300/60 bg-amber-500/5">
+                      <p className="font-bold text-amber-800 dark:text-amber-300 text-[10px] uppercase">
+                        {t.weaknesses}
+                      </p>
+                      <ul className="mt-1 space-y-1 text-muted-foreground text-[10px]">
+                        {data.swot.weaknesses.slice(0, 2).map((w, idx) => (
+                          <li key={idx} className="leading-tight">• {w}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Opportunities */}
+                    <div className="p-2.5 rounded-lg border border-blue-300/60 bg-blue-500/5">
+                      <p className="font-bold text-blue-800 dark:text-blue-300 text-[10px] uppercase">
+                        {t.opportunities}
+                      </p>
+                      <ul className="mt-1 space-y-1 text-muted-foreground text-[10px]">
+                        {data.swot.opportunities.slice(0, 2).map((o, idx) => (
+                          <li key={idx} className="leading-tight">• {o}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Threats */}
+                    <div className="p-2.5 rounded-lg border border-rose-300/60 bg-rose-500/5">
+                      <p className="font-bold text-rose-800 dark:text-rose-300 text-[10px] uppercase">
+                        {t.threats}
+                      </p>
+                      <ul className="mt-1 space-y-1 text-muted-foreground text-[10px]">
+                        {data.swot.threats.slice(0, 2).map((th, idx) => (
+                          <li key={idx} className="leading-tight">• {th}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Benchmark OPEX Breakdown */}
+              {data?.groundedFacts?.benchmarkOpex && (
+                <div className="space-y-2 pt-2 border-t border-border/50">
+                  <p className="text-[11px] font-bold font-sora text-foreground uppercase tracking-wider">
+                    {isTe ? 'సగటు ఖర్చుల విభజన' : 'District Benchmark OPEX'}
+                  </p>
+                  <div className="space-y-2">
+                    {data.groundedFacts.benchmarkOpex.map((cost, idx) => (
+                      <div key={idx}>
+                        <div className="flex items-center justify-between text-[11px] mb-1">
+                          <span className="text-muted-foreground truncate">{cost.item}</span>
+                          <span className="font-bold text-foreground">{cost.percentage}%</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${cost.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   TrendingUp,
   WalletCards,
@@ -25,6 +26,9 @@ import {
   LogOut,
   AlertCircle,
   RefreshCw,
+  Award,
+  Landmark,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CustomCursor } from '@/components/ui/custom-cursor';
@@ -45,13 +49,76 @@ import { CreditScoreScreen } from './screens/CreditScoreScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingScreen } from './onboarding/OnboardingScreen';
 
-const navigation = [
-  { label: 'Overview', icon: LayoutDashboard },
-  { label: 'Advisor', icon: Sparkles, items: ['Business Advisor', 'Finance Advisor'] },
-  { label: 'Opportunities', icon: FileText, items: ['Scheme Matching', 'Credit Score'] },
-  { label: 'Business', icon: BriefcaseBusiness, items: ['Business Profile', 'Digital Logbook', 'Business Plan'] },
-  { label: 'Finances', icon: WalletCards, items: ['Financial Analytics', 'Cash Flow'] },
-  { label: 'Risk Alerts', icon: ShieldAlert },
+interface NavItem {
+  id: string;
+  name: string;
+  nameTe: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+  isRisk?: boolean;
+}
+
+interface NavSection {
+  heading: string;
+  headingTe: string;
+  items: NavItem[];
+}
+
+const navigationSections: NavSection[] = [
+  {
+    heading: 'Overview',
+    headingTe: 'సమీక్ష',
+    items: [
+      { id: 'Overview', name: 'Dashboard', nameTe: 'డాష్‌బోర్డ్', icon: LayoutDashboard },
+    ],
+  },
+  {
+    heading: 'Advisors',
+    headingTe: 'AI సలహాదారులు',
+    items: [
+      { id: 'Finance Advisor', name: 'Financial Advisor', nameTe: 'ఆర్థిక సలహాదారు', icon: Calculator, badge: 'AI' },
+      { id: 'Business Advisor', name: 'Business Advisor', nameTe: 'వ్యాపార సలహాదారు', icon: Sparkles, badge: 'RAG' },
+    ],
+  },
+  {
+    heading: 'Financial',
+    headingTe: 'ఆర్థిక నిర్వహణ',
+    items: [
+      { id: 'Digital Logbook', name: 'Digital Logbook', nameTe: 'డిజిటల్ లాగ్‌బుక్', icon: BookOpen },
+      { id: 'Cash Flow', name: 'Cash Flow', nameTe: 'నగదు ప్రవాహం', icon: TrendingUp },
+      { id: 'Financial Analytics', name: 'Financial Analytics', nameTe: 'ఆర్థిక విశ్లేషణ', icon: FileBarChart },
+      { id: 'Credit Score', name: 'Financial Health / Credit', nameTe: 'ఆర్థిక ఆరోగ్యం / క్రెడిట్', icon: ShieldCheck },
+    ],
+  },
+  {
+    heading: 'Business',
+    headingTe: 'వ్యాపార వృద్ధి',
+    items: [
+      { id: 'Business Profile', name: 'Business Profile', nameTe: 'వ్యాపార ప్రొఫైల్', icon: BriefcaseBusiness },
+      { id: 'Business Plan', name: 'Bank Business Plan', nameTe: 'బ్యాంక్ వ్యాపార ప్రణాళిక', icon: FileText },
+    ],
+  },
+  {
+    heading: 'Government / Funding',
+    headingTe: 'ప్రభుత్వ పథకాలు & నిధులు',
+    items: [
+      { id: 'Scheme Matching', name: 'Scheme Matching', nameTe: 'ప్రభుత్వ పథకాల సరిపోలిక', icon: Award },
+    ],
+  },
+  {
+    heading: 'Risk',
+    headingTe: 'రిస్క్ & రక్షణలు',
+    items: [
+      { id: 'Risk Alerts', name: 'Risk Alerts', nameTe: 'రిస్క్ హెచ్చరికలు', icon: ShieldAlert, isRisk: true },
+    ],
+  },
+  {
+    heading: 'System',
+    headingTe: 'సిస్టమ్',
+    items: [
+      { id: 'Settings', name: 'Settings', nameTe: 'సెట్టింగ్‌లు', icon: Settings },
+    ],
+  },
 ];
 
 function Brand() {
@@ -83,13 +150,7 @@ function Sidebar({
 }) {
   const { profile, language, detectedRisks, dictionary } = useApp();
   const { signOut, exitDemo, isDemo } = useAuth();
-  const [expanded, setExpanded] = useState(['Business', 'Finances', 'Advisor', 'Opportunities']);
   const isTe = language === 'te';
-
-  const toggle = (label: string) =>
-    setExpanded((current) =>
-      current.includes(label) ? current.filter((item) => item !== label) : [...current, label]
-    );
 
   const initials = (profile?.name || 'Anita Sharma')
     .split(' ')
@@ -98,30 +159,6 @@ function Sidebar({
     .join('')
     .slice(0, 2)
     .toUpperCase() || 'AS';
-
-  // Map label to localized label if Telugu
-  const getNavLabel = (label: string) => {
-    if (!isTe) return label;
-    const map: Record<string, string> = {
-      Overview: 'ముఖ్యాంశాలు',
-      Business: 'వ్యాపారం',
-      'Business Profile': 'వ్యాపార ప్రొఫైల్',
-      'Digital Logbook': 'డిజిటల్ లాగ్‌బుక్',
-      'Business Plan': 'వ్యాపార ప్రణాళిక',
-      Finances: 'ఆర్థిక అంశాలు',
-      'Financial Analytics': 'ఆర్థిక విశ్లేషణ',
-      'Cash Flow': 'నగదు ప్రవాహం',
-      Advisor: 'సలహాదారు',
-      'Business Advisor': 'వ్యాపార సలహాదారు',
-      'Finance Advisor': 'ఆర్థిక సలహాదారు',
-      Opportunities: 'అవకాశాలు',
-      'Scheme Matching': 'ప్రభుత్వ పథకాలు',
-      'Credit Score': 'క్రెడిట్ స్కోరు',
-      'Risk Alerts': 'రిస్క్ హెచ్చరికలు',
-      Settings: 'సెట్టింగ్‌లు',
-    };
-    return map[label] || label;
-  };
 
   return (
     <>
@@ -150,72 +187,60 @@ function Sidebar({
           </Button>
         </div>
 
-        <div className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto pr-1">
-          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            {dictionary.workspace}
-          </p>
+        <div className="mt-6 flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
+          {navigationSections.map((section) => (
+            <div key={section.heading}>
+              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/80">
+                {isTe ? section.headingTe : section.heading}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = active === item.id;
 
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const hasItems = Boolean(item.items);
-            const isActive = active === item.label || item.items?.includes(active);
-            const isRiskItem = item.label === 'Risk Alerts';
-
-            return (
-              <div key={item.label} className="transition-all duration-150">
-                <button
-                  onClick={() =>
-                    hasItems ? toggle(item.label) : (setActive(item.label), setOpen(false))
-                  }
-                  className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium transition-all duration-150 cursor-pointer ${
-                    active === item.label
-                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                      : isActive
-                      ? 'text-foreground font-semibold bg-muted/50'
-                      : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-                  }`}
-                >
-                  <Icon className="size-4 shrink-0 transition-transform duration-150 group-hover:scale-110" />
-                  <span className="flex-1 truncate">{getNavLabel(item.label)}</span>
-
-                  {isRiskItem && detectedRisks.length > 0 && (
-                    <span className="rounded-full bg-rose-600 px-1.5 py-0.2 text-[10px] font-bold text-white shadow-2xs">
-                      {detectedRisks.length}
-                    </span>
-                  )}
-
-                  {hasItems && (
-                    <ChevronDown
-                      className={`size-3.5 transition-transform duration-200 ${
-                        expanded.includes(item.label) ? '' : '-rotate-90'
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActive(item.id);
+                        setOpen(false);
+                      }}
+                      className={`group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all duration-150 cursor-pointer ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                       }`}
-                    />
-                  )}
-                </button>
-
-                {hasItems && expanded.includes(item.label) && (
-                  <div className="ml-6 mt-1 flex flex-col gap-0.5 border-l border-border/80 pl-3 transition-all duration-200">
-                    {item.items?.map((child) => (
-                      <button
-                        key={child}
-                        onClick={() => {
-                          setActive(child);
-                          setOpen(false);
-                        }}
-                        className={`rounded-md px-2.5 py-1.5 text-left text-xs transition-all duration-150 cursor-pointer ${
-                          active === child
-                            ? 'font-semibold text-primary bg-primary/10 shadow-2xs'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    >
+                      <Icon
+                        className={`size-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
+                          isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'
                         }`}
-                      >
-                        {getNavLabel(child)}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                      />
+                      <span className="flex-1 truncate">{isTe ? item.nameTe : item.name}</span>
+
+                      {item.badge && (
+                        <span
+                          className={`rounded-md px-1.5 py-0.2 text-[9px] font-bold tracking-wider uppercase ${
+                            isActive
+                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+
+                      {item.isRisk && detectedRisks.length > 0 && (
+                        <span className="rounded-full bg-rose-600 px-1.5 py-0.2 text-[10px] font-bold text-white shadow-2xs">
+                          {detectedRisks.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
         {/* User Card & Sign Out at Bottom */}
@@ -453,16 +478,37 @@ function RuralCredAppInner() {
             >
               <Menu className="size-5" />
             </Button>
-            <div className="hidden text-xs text-muted-foreground sm:flex items-center gap-2">
-              <span className="font-medium text-foreground">{getGreeting()}, {(profile?.name || 'Anita Sharma').split(' ')[0]}</span>
-              <span className="text-muted-foreground/50">•</span>
-              <span className="truncate max-w-44 text-muted-foreground">{profile?.businessName || 'Rural Enterprise'}</span>
-              {profile?.location && (
-                <span className="hidden md:inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium border border-border/60">
-                  {profile.location}
-                </span>
-              )}
-            </div>
+            {(() => {
+              const getActiveBreadcrumb = (activeId: string) => {
+                for (const section of navigationSections) {
+                  const found = section.items.find((i) => i.id === activeId);
+                  if (found) {
+                    return {
+                      section: isTe ? section.headingTe : section.heading,
+                      item: isTe ? found.nameTe : found.name,
+                    };
+                  }
+                }
+                return { section: isTe ? 'వర్క్‌స్పేస్' : 'Workspace', item: activeId };
+              };
+              const breadcrumb = getActiveBreadcrumb(active);
+
+              return (
+                <div className="hidden text-xs text-muted-foreground sm:flex items-center gap-1.5">
+                  <span className="font-semibold text-foreground/80 font-sora">RuralCred</span>
+                  <ChevronRight className="size-3 text-muted-foreground/40" />
+                  <span className="text-muted-foreground">{breadcrumb.section}</span>
+                  <ChevronRight className="size-3 text-muted-foreground/40" />
+                  <span className="font-semibold text-primary">{breadcrumb.item}</span>
+                  {profile?.location && (
+                    <span className="hidden md:inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-muted/80 text-muted-foreground font-medium border border-border/70 ml-2">
+                      <MapPin className="size-3 text-primary" />
+                      {profile.location}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
             <div className="sm:hidden">
               <Brand />
             </div>
