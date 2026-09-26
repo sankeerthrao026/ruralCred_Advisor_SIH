@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { UnifiedBusinessPlan } from '@/lib/finance/plan';
 
-export function exportPlanToPdf(plan: UnifiedBusinessPlan, isTelugu: boolean = false) {
+export function generatePlanPdfDoc(plan: UnifiedBusinessPlan, isTelugu: boolean = false): jsPDF {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -65,7 +65,8 @@ export function exportPlanToPdf(plan: UnifiedBusinessPlan, isTelugu: boolean = f
   doc.text(`Social Category: ${plan.socialCategory} (${plan.gender})`, col2X, currentY + 20);
 
   doc.text(`Enterprise Stage: ${plan.isNewEnterprise ? 'New Greenfield Unit' : 'Expansion / Modernization'}`, col3X, currentY + 13);
-  doc.text(`Statutory Status: Udyam MSME Registered`, col3X, currentY + 20);
+  const udyamStatus = plan.hasUdyamRegistration ? 'Udyam MSME Registered' : 'Udyam Registration Pending';
+  doc.text(`Statutory Status: ${udyamStatus}`, col3X, currentY + 20);
 
   currentY += 34;
 
@@ -255,13 +256,80 @@ export function exportPlanToPdf(plan: UnifiedBusinessPlan, isTelugu: boolean = f
     styles: { cellPadding: 1.5 },
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 8;
+  currentY = (doc as any).lastAutoTable.finalY + 6;
 
-  // Section 8: Supporting Document Checklist Table
+  // Section 8: 5-Year Financial Projection Table (if available)
+  if (plan.multiYearProjections && plan.multiYearProjections.years.length > 0) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...primaryColor);
+    doc.text('8. 5-YEAR STRATEGIC FINANCIAL & DSCR PROJECTIONS', margin, currentY);
+    currentY += 2;
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: margin, right: margin },
+      head: [['Year', 'Gross Revenue (Rs.)', 'Operating Exp (Rs.)', 'NOI / EBITDA (Rs.)', 'Debt Service (Rs.)', 'Net Cash Flow (Rs.)', 'Closing Loan Bal', 'DSCR']],
+      body: plan.multiYearProjections.years.map((y) => [
+        `Year ${y.year}`,
+        `Rs. ${y.grossRevenue.toLocaleString('en-IN')}`,
+        `Rs. ${y.operatingExpenses.toLocaleString('en-IN')}`,
+        `Rs. ${y.netOperatingIncome.toLocaleString('en-IN')}`,
+        `Rs. ${y.totalDebtService.toLocaleString('en-IN')}`,
+        `Rs. ${y.netCashFlow.toLocaleString('en-IN')}`,
+        `Rs. ${y.closingLoanBalance.toLocaleString('en-IN')}`,
+        `${y.dscr.toFixed(2)}x`,
+      ]),
+      headStyles: { fillColor: [15, 76, 58], fontSize: 6.8, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 6.5, textColor: slateDark },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      theme: 'grid',
+      styles: { cellPadding: 1.4 },
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 6;
+  }
+
+  // Section 9: Business Scenario & Stress Test Analysis
+  if (plan.scenarioAnalysis) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...primaryColor);
+    doc.text('9. SCENARIO SIMULATION & STRESS TEST ANALYSIS', margin, currentY);
+    currentY += 2;
+
+    const sBase = plan.scenarioAnalysis.base;
+    const sCons = plan.scenarioAnalysis.conservative;
+    const sOpt = plan.scenarioAnalysis.optimistic;
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: margin, right: margin },
+      head: [['Scenario Case', 'Revenue / Opex Delta', 'Monthly Revenue', 'Monthly NOI', 'DSCR', 'Annual Net Cash', 'Risk Level']],
+      body: [
+        ['Base Case (Expected)', 'Normal (0% / 0%)', `Rs. ${sBase.monthlyRevenue.toLocaleString('en-IN')}`, `Rs. ${sBase.monthlyNetOperatingIncome.toLocaleString('en-IN')}`, `${sBase.dscr.toFixed(2)}x`, `Rs. ${sBase.netAnnualCashFlow.toLocaleString('en-IN')}`, sBase.riskSeverity.toUpperCase()],
+        ['Conservative (Stress)', '-20% Rev / +10% Exp', `Rs. ${sCons.monthlyRevenue.toLocaleString('en-IN')}`, `Rs. ${sCons.monthlyNetOperatingIncome.toLocaleString('en-IN')}`, `${sCons.dscr.toFixed(2)}x`, `Rs. ${sCons.netAnnualCashFlow.toLocaleString('en-IN')}`, sCons.riskSeverity.toUpperCase()],
+        ['Optimistic (Growth)', '+15% Rev / -5% Exp', `Rs. ${sOpt.monthlyRevenue.toLocaleString('en-IN')}`, `Rs. ${sOpt.monthlyNetOperatingIncome.toLocaleString('en-IN')}`, `${sOpt.dscr.toFixed(2)}x`, `Rs. ${sOpt.netAnnualCashFlow.toLocaleString('en-IN')}`, sOpt.riskSeverity.toUpperCase()],
+      ],
+      headStyles: { fillColor: slateDark, fontSize: 6.8, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 6.5, textColor: slateDark },
+      theme: 'grid',
+      styles: { cellPadding: 1.4 },
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 6;
+  }
+
+  // Section 10: Supporting Document Checklist Table
+  if (currentY + 50 > pageHeight) {
+    doc.addPage();
+    currentY = 16;
+  }
+
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...primaryColor);
-  doc.text('8. MANDATORY BANK APPRAISAL & COMPLIANCE CHECKLIST', margin, currentY);
+  doc.text('10. MANDATORY BANK APPRAISAL & COMPLIANCE CHECKLIST', margin, currentY);
   currentY += 2;
 
   autoTable(doc, {
@@ -273,15 +341,15 @@ export function exportPlanToPdf(plan: UnifiedBusinessPlan, isTelugu: boolean = f
       d.importance.toUpperCase(),
       d.description,
     ]),
-    headStyles: { fillColor: slateDark, fontSize: 7.5, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 7, textColor: slateDark },
+    headStyles: { fillColor: slateDark, fontSize: 7, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.8, textColor: slateDark },
     theme: 'grid',
-    styles: { cellPadding: 1.8 },
+    styles: { cellPadding: 1.6 },
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 12;
+  currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  // Section 9: Formal Declaration & Signatures Block
+  // Section 11: Formal Declaration & Signatures Block
   if (currentY + 36 > pageHeight) {
     doc.addPage();
     currentY = 20;
@@ -289,32 +357,37 @@ export function exportPlanToPdf(plan: UnifiedBusinessPlan, isTelugu: boolean = f
 
   doc.setFillColor(...cardBg);
   doc.setDrawColor(...accentBorder);
-  doc.roundedRect(margin, currentY, pageWidth - margin * 2, 32, 2, 2, 'FD');
+  doc.roundedRect(margin, currentY, pageWidth - margin * 2, 30, 2, 2, 'FD');
 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...slateDark);
-  doc.text('9. DECLARATION & BANK APPRAISAL ENDORSEMENT', margin + 4, currentY + 6);
+  doc.text('11. DECLARATION & BANK APPRAISAL ENDORSEMENT', margin + 4, currentY + 5);
 
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...slateMuted);
   doc.text(
     'I hereby declare that all particulars furnished in this project proposal are true and accurate to the best of my knowledge.',
     margin + 4,
-    currentY + 11
+    currentY + 10
   );
 
   const sigCol1 = margin + 10;
   const sigCol2 = margin + 110;
 
-  doc.line(sigCol1, currentY + 24, sigCol1 + 60, currentY + 24);
-  doc.text(`Applicant Signature: ${plan.entrepreneurName}`, sigCol1, currentY + 28);
+  doc.line(sigCol1, currentY + 22, sigCol1 + 60, currentY + 22);
+  doc.text(`Applicant Signature: ${plan.entrepreneurName}`, sigCol1, currentY + 26);
 
-  doc.line(sigCol2, currentY + 24, sigCol2 + 60, currentY + 24);
-  doc.text('Branch Credit Manager Appraisal & Stamp', sigCol2, currentY + 28);
+  doc.line(sigCol2, currentY + 22, sigCol2 + 60, currentY + 22);
+  doc.text('Branch Credit Manager Appraisal & Stamp', sigCol2, currentY + 26);
 
-  // Save PDF
+  return doc;
+}
+
+export function exportPlanToPdf(plan: UnifiedBusinessPlan, isTelugu: boolean = false): jsPDF {
+  const doc = generatePlanPdfDoc(plan, isTelugu);
   const filenameSafe = plan.enterpriseName.replace(/[^a-zA-Z0-9_-]/g, '_');
   doc.save(`Business_Plan_${filenameSafe}.pdf`);
+  return doc;
 }

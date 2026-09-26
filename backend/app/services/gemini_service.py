@@ -1,11 +1,16 @@
 import json
 import os
+import time
 from typing import Dict, Any, Optional
 from app.config import settings
+from app.services.llm_monitor import llm_monitor
 
 class GeminiService:
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
+        self.nvidia_api_key = settings.NVIDIA_API_KEY
+        self.nvidia_base_url = (settings.NVIDIA_BASE_URL or "https://integrate.api.nvidia.com/v1").rstrip("/")
+        self.nvidia_model = settings.NVIDIA_MODEL or "nvidia/nemotron-3-ultra-550b-a55b"
         self.client = None
         self.last_model_used = None
         self._init_client()
@@ -23,11 +28,81 @@ class GeminiService:
             except Exception as e:
                 print(f"[WARN] Failed to initialize Gemini client: {e}")
                 self.client = None
+        elif self.nvidia_api_key:
+            print("[INFO] NVIDIA NIM Client active as primary LLM engine.")
         else:
-            print("[INFO] GEMINI_API_KEY not configured. AI advisor will utilize verified ChromaDB grounded fallback.")
+            print("[INFO] No LLM API key configured. AI advisor will utilize verified ChromaDB grounded fallback.")
 
     def is_available(self) -> bool:
-        return bool(self.client and self.api_key)
+        return bool(self.nvidia_api_key or (self.client and self.api_key))
+
+    def _call_nvidia_nim(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 2048,
+        temperature: float = 0.2,
+        json_mode: bool = True,
+    ) -> Optional[str]:
+        if not self.nvidia_api_key:
+            return None
+        import httpx
+        candidate_models = [
+            self.nvidia_model,
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
+        ]
+        headers = {
+            "Authorization": f"Bearer {self.nvidia_api_key}",
+            "Content-Type": "application/json",
+        }
+        for model in candidate_models:
+            t_start = time.time()
+            llm_monitor.record_request_start("primary", model)
+            try:
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                }
+                if json_mode:
+                    payload["response_format"] = {"type": "json_object"}
+                resp = httpx.post(
+                    f"{self.nvidia_base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=httpx.Timeout(60.0, connect=10.0),
+                )
+                t_dur = (time.time() - t_start) * 1000
+                if resp.status_code == 200:
+                    data = resp.json()
+                    content = data["choices"][0]["message"]["content"]
+                    self.last_model_used = f"NVIDIA NIM ({model})"
+                    usage = data.get("usage") or {}
+                    llm_monitor.record_request_success(
+                        "primary",
+                        model,
+                        input_tokens=usage.get("prompt_tokens"),
+                        output_tokens=usage.get("completion_tokens"),
+                        total_tokens=usage.get("total_tokens"),
+                        latency_ms=t_dur,
+                    )
+                    print(f"[INFO] NVIDIA NIM advisory generated successfully via {model} in {t_dur:.1f}ms.")
+                    return content
+                else:
+                    err_msg = resp.text[:150]
+                    print(f"[WARN] NVIDIA NIM model {model} returned HTTP {resp.status_code}: {err_msg}")
+                    llm_monitor.record_request_failure("primary", model, f"HTTP_{resp.status_code}", err_msg, status_code=resp.status_code)
+            except Exception as e:
+                t_dur = (time.time() - t_start) * 1000
+                print(f"[WARN] NVIDIA NIM request with {model} failed: {e}")
+                llm_monitor.record_request_failure("primary", model, "NETWORK_EXCEPTION", str(e))
+        llm_monitor.record_fallback_activation("NVIDIA NIM", "secondary", "All NVIDIA candidate models failed or timed out")
+        return None
 
     def generate_grounded_advice(
         self,
@@ -141,47 +216,97 @@ Return a valid JSON object with the following structure:
   "assumptions": ["string"]
 }}"""
 
-        candidate_models = [
-            "gemini-flash-latest",
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-        ]
-        for model in candidate_models:
-            t_model_start = time.time()
-            try:
-                response = self.client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        response_mime_type="application/json",
-                        temperature=0.2,
-                        max_output_tokens=1024,
-                        thinking_config=types.ThinkingConfig(thinking_budget=0),
-                    ),
-                )
-                t_model_duration = (time.time() - t_model_start) * 1000
+        # 1. Primary Engine: NVIDIA NIM (Nemotron)
+        if self.nvidia_api_key:
+            nim_text = self._call_nvidia_nim(system_prompt, prompt, max_tokens=2048, json_mode=True)
+            if nim_text:
+                try:
+                    import re
+                    json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", nim_text)
+                    raw_json = json_match.group(1).strip() if json_match else nim_text.strip()
+                    if not raw_json.startswith("{"):
+                        brace_idx = raw_json.find("{")
+                        if brace_idx != -1:
+                            raw_json = raw_json[brace_idx:]
+                    if not raw_json.endswith("}"):
+                        last_brace = raw_json.rfind("}")
+                        if last_brace != -1:
+                            raw_json = raw_json[:last_brace+1]
+                    
+                    try:
+                        parsed = json.loads(raw_json)
+                    except Exception:
+                        sanitized = re.sub(r"[\x00-\x1F]+", lambda m: " " if m.group(0) in ("\n", "\r", "\t") else "", raw_json)
+                        sanitized = re.sub(r",\s*([\]}])", r"\1", sanitized)
+                        parsed = json.loads(sanitized)
+                    return parsed
+                except Exception as e:
+                    print(f"[WARN] Failed to parse NVIDIA NIM advisory JSON: {e}")
 
-                raw_text = response.text or ""
-                json_text = raw_text.strip()
-                if json_text.startswith("```"):
-                    lines = json_text.split("\n")
-                    if lines[0].startswith("```"):
-                        lines = lines[1:]
-                    if lines and lines[-1].startswith("```"):
-                        lines = lines[:-1]
-                    json_text = "\n".join(lines).strip()
+        # 2. Secondary Engine: Google Gemini (if configured)
+        if self.client and self.api_key:
+            from google.genai import types
+            candidate_models = [
+                "gemini-1.5-flash",
+                "gemini-2.5-flash",
+                "gemini-2.0-flash",
+            ]
+            for model in candidate_models:
+                t_model_start = time.time()
+                llm_monitor.record_request_start("secondary", model)
+                try:
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            response_mime_type="application/json",
+                            temperature=0.2,
+                            max_output_tokens=1024,
+                            thinking_config=types.ThinkingConfig(thinking_budget=0),
+                        ),
+                    )
+                    t_model_duration = (time.time() - t_model_start) * 1000
 
-                parsed = json.loads(json_text)
-                self.last_model_used = model
-                print(f"[INFO] Gemini advisory generated successfully via {model} in {t_model_duration:.1f}ms.")
-                return parsed
-            except Exception as e:
-                t_model_duration = (time.time() - t_model_start) * 1000
-                print(f"[WARN] Gemini generation with {model} failed after {t_model_duration:.1f}ms: {e}")
+                    raw_text = response.text or ""
+                    json_text = raw_text.strip()
+                    if json_text.startswith("```"):
+                        lines = json_text.split("\n")
+                        if lines[0].startswith("```"):
+                            lines = lines[1:]
+                        if lines and lines[-1].startswith("```"):
+                            lines = lines[:-1]
+                        json_text = "\n".join(lines).strip()
 
-        print("[WARN] All Gemini candidate models failed. Reverting to grounded local fallback.")
+                    parsed = json.loads(json_text)
+                    self.last_model_used = f"Google Gemini ({model})"
+                    
+                    usage = getattr(response, "usage_metadata", None)
+                    in_tok = getattr(usage, "prompt_token_count", None) if usage else None
+                    out_tok = getattr(usage, "candidates_token_count", None) if usage else None
+                    tot_tok = getattr(usage, "total_token_count", None) if usage else None
+
+                    llm_monitor.record_request_success(
+                        "secondary",
+                        model,
+                        input_tokens=in_tok,
+                        output_tokens=out_tok,
+                        total_tokens=tot_tok,
+                        latency_ms=t_model_duration,
+                    )
+                    print(f"[INFO] Gemini advisory generated successfully via {model} in {t_model_duration:.1f}ms.")
+                    return parsed
+                except Exception as e:
+                    t_model_duration = (time.time() - t_model_start) * 1000
+                    print(f"[WARN] Gemini generation with {model} failed after {t_model_duration:.1f}ms: {e}")
+                    llm_monitor.record_request_failure("secondary", model, "API_EXCEPTION", str(e))
+
+            llm_monitor.record_fallback_activation("Google Gemini", "local_fallback", "All Gemini candidate models failed or timed out")
+
+        # Record deterministic fallback start and success
+        llm_monitor.record_request_start("local_fallback")
+        llm_monitor.record_request_success("local_fallback", "local-dataset-synthesizer", latency_ms=0)
+        print("[WARN] All LLM engines failed or unconfigured. Reverting to grounded local fallback.")
         return None
 
     def generate_conversational_finance_reply(
@@ -281,31 +406,38 @@ CURRENT ENTREPRENEUR INQUIRY:
 {lang_instruction}
 Provide a direct, helpful, and professional conversational response (2 to 4 paragraphs) addressing the entrepreneur's question directly using the verified calculations above."""
 
-        candidate_models = [
-            "gemini-2.5-flash",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash",
-            "gemini-flash-latest",
-            "gemini-2.0-flash",
-        ]
-        for model in candidate_models:
-            try:
-                response = self.client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        temperature=0.3,
-                        max_output_tokens=1024,
-                        thinking_config=types.ThinkingConfig(thinking_budget=0),
-                    ),
-                )
-                text = response.text or ""
-                if text.strip():
-                    self.last_model_used = model
-                    return text.strip()
-            except Exception as e:
-                print(f"[WARN] Gemini finance reply with {model} failed: {e}")
+        # 1. Primary Engine: NVIDIA NIM (Nemotron)
+        if self.nvidia_api_key:
+            nim_text = self._call_nvidia_nim(system_prompt, prompt, max_tokens=1024, json_mode=False)
+            if nim_text and nim_text.strip():
+                return nim_text.strip()
+
+        # 2. Secondary Engine: Google Gemini (if configured)
+        if self.client and self.api_key:
+            from google.genai import types
+            candidate_models = [
+                "gemini-1.5-flash",
+                "gemini-2.5-flash",
+                "gemini-2.0-flash",
+            ]
+            for model in candidate_models:
+                try:
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            temperature=0.3,
+                            max_output_tokens=1024,
+                            thinking_config=types.ThinkingConfig(thinking_budget=0),
+                        ),
+                    )
+                    text = response.text or ""
+                    if text.strip():
+                        self.last_model_used = f"Google Gemini ({model})"
+                        return text.strip()
+                except Exception as e:
+                    print(f"[WARN] Gemini finance reply with {model} failed: {e}")
 
         return None
 

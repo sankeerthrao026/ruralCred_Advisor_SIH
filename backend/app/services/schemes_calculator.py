@@ -94,53 +94,104 @@ def calculate_mudra(inp: SchemeEligibilityInput) -> SchemeCalculationResult:
         * Tarun: ₹5,00,001 to ₹10,00,000 (15% margin, 11.0% p.a., 5 yrs)
     - Guarantee: Credit Guarantee Fund for Micro Units (CGFMU).
     """
-    amount = float(inp.loanAmount)
+    amount = float(inp.loanAmount) if inp.loanAmount else 50000.0
 
-    if amount <= 50000.0:
-        tier_id = "mudra-shishu"
-        tier_name = "MUDRA (Shishu Tier)"
-        tier_name_te = "పీఎం ముద్రా (శిశు - ₹50,000 వరకు)"
-        max_loan = 50000.0
-        sanctioned = min(amount, max_loan)
-        margin_percent = 0.0
-        promoter_contrib = 0.0
-        project_cost = sanctioned
-        interest_rate = 8.5
-        tenure_years = 3.0
-        tenure_months = 36
-        moratorium_months = 3
-        tier_desc = "For micro-starters needing small working capital injections with 0% margin money and zero processing fees."
-        tier_desc_te = "చిన్న వ్యాపారాల ప్రారంభానికి ఎటువంటి సొంత వాటా లేకుండా సున్నా ప్రాసెసింగ్ ఫీజుతో లభించే రుణం."
-    elif amount <= 500000.0:
-        tier_id = "mudra-kishore"
-        tier_name = "MUDRA (Kishore Tier)"
-        tier_name_te = "పీఎం ముద్రా (కిషోర్ - ₹50,000 నుండి ₹5 లక్షలు)"
-        max_loan = 500000.0
-        sanctioned = min(amount, max_loan)
-        margin_percent = 10.0
-        project_cost = round(sanctioned / 0.90)
-        promoter_contrib = project_cost - sanctioned
-        interest_rate = 9.75 if inp.gender.lower() in ("female", "woman") else 10.0  # 0.25% Mahila Udyami rebate
-        tenure_years = 5.0
-        tenure_months = 60
-        moratorium_months = 6
-        tier_desc = "For expanding micro-enterprises purchasing inventory, equipment, or business stock up to ₹5 Lakhs."
-        tier_desc_te = "వ్యాపార విస్తరణ మరియు ముడిసరుకు కొనుగోలుకు ₹5 లక్షల వరకు లభించే పూచీకత్తు రహిత రుణం."
+    if inp.projectCost and inp.projectCost > 0:
+        p_cost = float(inp.projectCost)
+        if p_cost <= 50000.0:
+            tier_id = "mudra-shishu"
+            tier_name = "MUDRA (Shishu Tier)"
+            tier_name_te = "పీఎం ముద్రా (శిశు - ₹50,000 వరకు)"
+            max_loan = 50000.0
+            margin_percent = 0.0
+            sanctioned = min(p_cost, max_loan)
+            project_cost = p_cost
+            promoter_contrib = project_cost - sanctioned
+            interest_rate = 8.5
+            tenure_years = 3.0
+            tenure_months = 36
+            moratorium_months = 3
+            tier_desc = "For micro-starters needing small working capital injections with 0% margin money and zero processing fees."
+            tier_desc_te = "చిన్న వ్యాపారాల ప్రారంభానికి ఎటువంటి సొంత వాటా లేకుండా సున్నా ప్రాసెసింగ్ ఫీజుతో లభించే రుణం."
+        elif p_cost <= 555555.0:
+            tier_id = "mudra-kishore"
+            tier_name = "MUDRA (Kishore Tier)"
+            tier_name_te = "పీఎం ముద్రా (కిషోర్ - ₹50,000 నుండి ₹5 లక్షలు)"
+            max_loan = 500000.0
+            margin_percent = 10.0
+            project_cost = p_cost
+            promoter_contrib = round(project_cost * (margin_percent / 100.0))
+            sanctioned = min(project_cost - promoter_contrib, max_loan)
+            promoter_contrib = project_cost - sanctioned
+            interest_rate = 9.75 if inp.gender.lower() in ("female", "woman") else 10.0
+            tenure_years = 5.0
+            tenure_months = 60
+            moratorium_months = 6
+            tier_desc = "For expanding micro-enterprises purchasing inventory, equipment, or business stock up to ₹5 Lakhs."
+            tier_desc_te = "వ్యాపార విస్తరణ మరియు ముడిసరుకు కొనుగోలుకు ₹5 లక్షల వరకు లభించే పూచీకత్తు రహిత రుణం."
+        else:
+            tier_id = "mudra-tarun"
+            tier_name = "MUDRA (Tarun Tier)"
+            tier_name_te = "పీఎం ముద్రా (తరుణ్ - ₹5 లక్షల నుండి ₹10 లక్షలు)"
+            max_loan = 1000000.0
+            margin_percent = 15.0
+            project_cost = p_cost
+            promoter_contrib = round(project_cost * (margin_percent / 100.0))
+            sanctioned = min(project_cost - promoter_contrib, max_loan)
+            promoter_contrib = project_cost - sanctioned
+            interest_rate = 10.75 if inp.gender.lower() in ("female", "woman") else 11.0
+            tenure_years = 5.0
+            tenure_months = 60
+            moratorium_months = 6
+            tier_desc = "For established micro-enterprises scaling operations, setting up production units, or upgrading tech."
+            tier_desc_te = "స్థిరపడిన వ్యాపారాల విస్తరణకు ₹10 లక్షల వరకు లభించే ఉన్నత స్థాయి ముద్రా రుణం."
+        amount = sanctioned
     else:
-        tier_id = "mudra-tarun"
-        tier_name = "MUDRA (Tarun Tier)"
-        tier_name_te = "పీఎం ముద్రా (తరుణ్ - ₹5 లక్షల నుండి ₹10 లక్షలు)"
-        max_loan = 1000000.0
-        sanctioned = min(amount, max_loan)
-        margin_percent = 15.0
-        project_cost = round(sanctioned / 0.85)
-        promoter_contrib = project_cost - sanctioned
-        interest_rate = 10.75 if inp.gender.lower() in ("female", "woman") else 11.0
-        tenure_years = 5.0
-        tenure_months = 60
-        moratorium_months = 6
-        tier_desc = "For established micro-enterprises scaling operations, setting up production units, or upgrading tech."
-        tier_desc_te = "స్థిరపడిన వ్యాపారాల విస్తరణకు ₹10 లక్షల వరకు లభించే ఉన్నత స్థాయి ముద్రా రుణం."
+        if amount <= 50000.0:
+            tier_id = "mudra-shishu"
+            tier_name = "MUDRA (Shishu Tier)"
+            tier_name_te = "పీఎం ముద్రా (శిశు - ₹50,000 వరకు)"
+            max_loan = 50000.0
+            sanctioned = min(amount, max_loan)
+            margin_percent = 0.0
+            promoter_contrib = 0.0
+            project_cost = sanctioned
+            interest_rate = 8.5
+            tenure_years = 3.0
+            tenure_months = 36
+            moratorium_months = 3
+            tier_desc = "For micro-starters needing small working capital injections with 0% margin money and zero processing fees."
+            tier_desc_te = "చిన్న వ్యాపారాల ప్రారంభానికి ఎటువంటి సొంత వాటా లేకుండా సున్నా ప్రాసెసింగ్ ఫీజుతో లభించే రుణం."
+        elif amount <= 500000.0:
+            tier_id = "mudra-kishore"
+            tier_name = "MUDRA (Kishore Tier)"
+            tier_name_te = "పీఎం ముద్రా (కిషోర్ - ₹50,000 నుండి ₹5 లక్షలు)"
+            max_loan = 500000.0
+            sanctioned = min(amount, max_loan)
+            margin_percent = 10.0
+            project_cost = round(sanctioned / 0.90)
+            promoter_contrib = project_cost - sanctioned
+            interest_rate = 9.75 if inp.gender.lower() in ("female", "woman") else 10.0  # 0.25% Mahila Udyami rebate
+            tenure_years = 5.0
+            tenure_months = 60
+            moratorium_months = 6
+            tier_desc = "For expanding micro-enterprises purchasing inventory, equipment, or business stock up to ₹5 Lakhs."
+            tier_desc_te = "వ్యాపార విస్తరణ మరియు ముడిసరుకు కొనుగోలుకు ₹5 లక్షల వరకు లభించే పూచీకత్తు రహిత రుణం."
+        else:
+            tier_id = "mudra-tarun"
+            tier_name = "MUDRA (Tarun Tier)"
+            tier_name_te = "పీఎం ముద్రా (తరుణ్ - ₹5 లక్షల నుండి ₹10 లక్షలు)"
+            max_loan = 1000000.0
+            sanctioned = min(amount, max_loan)
+            margin_percent = 15.0
+            project_cost = round(sanctioned / 0.85)
+            promoter_contrib = project_cost - sanctioned
+            interest_rate = 10.75 if inp.gender.lower() in ("female", "woman") else 11.0
+            tenure_years = 5.0
+            tenure_months = 60
+            moratorium_months = 6
+            tier_desc = "For established micro-enterprises scaling operations, setting up production units, or upgrading tech."
+            tier_desc_te = "స్థిరపడిన వ్యాపారాల విస్తరణకు ₹10 లక్షల వరకు లభించే ఉన్నత స్థాయి ముద్రా రుణం."
 
     emi_data = calculate_reducing_emi(
         principal=sanctioned,
@@ -200,14 +251,22 @@ def calculate_pm_vishwakarma(inp: SchemeEligibilityInput) -> SchemeCalculationRe
     - Overall max: ₹3,00,000
     - Guarantee: CGTMSE fee 100% borne by Govt of India
     """
-    amount = float(inp.loanAmount)
+    amount = float(inp.loanAmount) if inp.loanAmount else 100000.0
     is_artisan = inp.isArtisanTrade if inp.isArtisanTrade is not None else check_is_artisan(inp.category)
 
     max_loan = 300000.0
-    sanctioned = min(amount, max_loan)
     margin_percent = 5.0
-    project_cost = round(sanctioned / 0.95)
-    promoter_contrib = project_cost - sanctioned
+
+    if inp.projectCost and inp.projectCost > 0:
+        project_cost = float(inp.projectCost)
+        promoter_contrib = round(project_cost * (margin_percent / 100.0))
+        sanctioned = min(project_cost - promoter_contrib, max_loan)
+        promoter_contrib = project_cost - sanctioned
+        amount = sanctioned
+    else:
+        sanctioned = min(amount, max_loan)
+        project_cost = round(sanctioned / 0.95)
+        promoter_contrib = project_cost - sanctioned
 
     # Tenure: 18 months for <= 1L (Tranche 1), 30 months if > 1L (Tranche 2 cumulative)
     if sanctioned <= 100000.0:
@@ -283,18 +342,26 @@ def calculate_stand_up_india(inp: SchemeEligibilityInput) -> SchemeCalculationRe
     - Tenure: 7 Years (84 months) with up to 18 months moratorium.
     - Guarantee: Credit Guarantee Scheme for Stand-Up India (CGSUI via NCGTC).
     """
-    amount = float(inp.loanAmount)
+    amount = float(inp.loanAmount) if inp.loanAmount else 1000000.0
     is_woman = inp.gender.lower() in ("female", "woman", "f")
     is_sc_st = inp.socialCategory.upper() in ("SC", "ST")
     is_qualifying_promoter = is_woman or is_sc_st
 
     max_loan = 10000000.0  # ₹1 Crore
     min_loan = 1000000.0   # ₹10 Lakhs
-
-    sanctioned = max(min_loan, min(amount, max_loan))
     margin_percent = 15.0
-    project_cost = round(sanctioned / 0.85)
-    promoter_contrib = project_cost - sanctioned
+
+    if inp.projectCost and inp.projectCost > 0:
+        project_cost = float(inp.projectCost)
+        promoter_contrib = round(project_cost * (margin_percent / 100.0))
+        calc_loan = project_cost - promoter_contrib
+        sanctioned = max(min_loan, min(calc_loan, max_loan))
+        promoter_contrib = project_cost - sanctioned
+        amount = sanctioned
+    else:
+        sanctioned = max(min_loan, min(amount, max_loan))
+        project_cost = round(sanctioned / 0.85)
+        promoter_contrib = project_cost - sanctioned
 
     interest_rate = 8.5  # Concessional base MCLR + spread
     tenure_years = 7.0
@@ -370,7 +437,7 @@ def calculate_pmegp(inp: SchemeEligibilityInput) -> SchemeCalculationResult:
     - Tenure: 5 years (60 months) with 6 months moratorium.
     - Guarantee: CGTMSE coverage (up to 85% for women/special categories).
     """
-    amount = float(inp.loanAmount)
+    amount = float(inp.loanAmount) if inp.loanAmount else 500000.0
     is_woman = inp.gender.lower() in ("female", "woman", "f")
     is_sc_st_obc = inp.socialCategory.upper() in ("SC", "ST", "OBC")
     is_special_category = is_woman or is_sc_st_obc
@@ -394,10 +461,17 @@ def calculate_pmegp(inp: SchemeEligibilityInput) -> SchemeCalculationResult:
     loan_share_percent = 100.0 - promoter_percent - subsidy_percent
     max_loan = max_project_cost * (loan_share_percent / 100.0)
 
-    sanctioned = min(amount, max_loan)
-    project_cost = round(sanctioned / (loan_share_percent / 100.0))
-    subsidy_amount = round(project_cost * (subsidy_percent / 100.0))
-    promoter_contrib = project_cost - sanctioned - subsidy_amount
+    if inp.projectCost and inp.projectCost > 0:
+        project_cost = min(float(inp.projectCost), max_project_cost)
+        subsidy_amount = round(project_cost * (subsidy_percent / 100.0))
+        promoter_contrib = round(project_cost * (promoter_percent / 100.0))
+        sanctioned = project_cost - promoter_contrib - subsidy_amount
+        amount = sanctioned
+    else:
+        sanctioned = min(amount, max_loan)
+        project_cost = round(sanctioned / (loan_share_percent / 100.0))
+        subsidy_amount = round(project_cost * (subsidy_percent / 100.0))
+        promoter_contrib = project_cost - sanctioned - subsidy_amount
 
     interest_rate = 9.0  # Commercial bank priority-sector rate
     tenure_years = 5.0
@@ -462,36 +536,33 @@ def calculate_nbcfdc(inp: SchemeEligibilityInput) -> SchemeCalculationResult:
     - Term Loan: Project cost <= ₹50,00,000 (8.0% p.a., 7 yrs, 6 mos moratorium)
     - Promoters: OBC entrepreneurs living below double poverty line.
     """
-    amount = float(inp.loanAmount)
+    amount = float(inp.loanAmount) if inp.loanAmount else 90000.0
     is_obc = inp.socialCategory.upper() == "OBC"
 
-    # Project Cost = Loan / 0.90
-    project_cost = round(amount / 0.90)
-    is_micro = project_cost <= 140000.0
-
-    if is_micro:
-        scheme_id = "nbcfdc-micro"
-        scheme_name = "NBCFDC Micro Finance Scheme"
-        scheme_name_te = "ఎన్‌బీసీఎఫ్‌డీసీ సూక్ష్మ రుణ పథకం"
-        max_loan = 126000.0  # 90% of 1.40L
-        sanctioned = min(amount, max_loan)
-        interest_rate = 6.5
-        tenure_years = 3.0
-        tenure_months = 36
-        moratorium_months = 3
+    if inp.projectCost and inp.projectCost > 0:
+        project_cost_calc = float(inp.projectCost)
+        is_micro = project_cost_calc <= 140000.0
+        max_loan = 126000.0 if is_micro else 4500000.0
+        actual_project_cost = float(inp.projectCost)
+        promoter_contrib = round(actual_project_cost * 0.10)
+        sanctioned = min(actual_project_cost - promoter_contrib, max_loan)
+        promoter_contrib = actual_project_cost - sanctioned
+        amount = sanctioned
     else:
-        scheme_id = "nbcfdc-term"
-        scheme_name = "NBCFDC Term Loan Scheme"
-        scheme_name_te = "ఎన్‌బీసీఎఫ్‌డీసీ టర్మ్ లోన్ పథకం"
-        max_loan = 4500000.0  # 90% of 50L
+        project_cost_calc = round(amount / 0.90)
+        is_micro = project_cost_calc <= 140000.0
+        max_loan = 126000.0 if is_micro else 4500000.0
         sanctioned = min(amount, max_loan)
-        interest_rate = 8.0
-        tenure_years = 7.0
-        tenure_months = 84
-        moratorium_months = 6
+        actual_project_cost = round(sanctioned / 0.90)
+        promoter_contrib = actual_project_cost - sanctioned
 
-    actual_project_cost = round(sanctioned / 0.90)
-    promoter_contrib = actual_project_cost - sanctioned
+    scheme_id = "nbcfdc-micro" if is_micro else "nbcfdc-term"
+    scheme_name = "NBCFDC Micro Finance Scheme" if is_micro else "NBCFDC Term Loan Scheme"
+    scheme_name_te = "ఎన్‌బీసీఎఫ్‌డీసీ సూక్ష్మ రుణ పథకం" if is_micro else "ఎన్‌బీసీఎఫ్‌డీసీ టర్మ్ లోన్ పథకం"
+    interest_rate = 6.5 if is_micro else 8.0
+    tenure_years = 3.0 if is_micro else 7.0
+    tenure_months = 36 if is_micro else 84
+    moratorium_months = 3 if is_micro else 6
 
     emi_data = calculate_reducing_emi(
         principal=sanctioned,
@@ -574,31 +645,25 @@ def calculate_all_eligible_schemes(inp: SchemeEligibilityInput) -> List[SchemeCa
     # 5. NBCFDC
     results.append(calculate_nbcfdc(inp))
 
-    # Determine Top Match based on eligibility and strongest financial benefit:
-    # Priority:
-    # 1. If artisan trade & loan <= 3L -> PM Vishwakarma (5% interest + ₹15k grant is unbeatable)
-    # 2. If woman/SC/ST & loan >= 10L -> Stand-Up India (mandate up to 1Cr, low margin)
-    # 3. If special category & rural -> PMEGP (35% free capital subsidy)
-    # 4. If OBC & loan <= 1.4L -> NBCFDC Micro (6.5% interest)
-    # 5. MUDRA (auto-tier collateral-free default)
-
     is_woman = inp.gender.lower() in ("female", "woman", "f")
     is_sc_st = inp.socialCategory.upper() in ("SC", "ST")
     is_obc = inp.socialCategory.upper() == "OBC"
     is_artisan = inp.isArtisanTrade if inp.isArtisanTrade is not None else check_is_artisan(inp.category)
 
+    eval_amount = inp.loanAmount or (inp.projectCost * 0.85 if inp.projectCost else 500000.0)
+
     top_id = "mudra-kishore"
-    if is_artisan and inp.loanAmount <= 300000.0:
+    if is_artisan and eval_amount <= 300000.0:
         top_id = "pm-vishwakarma"
-    elif (is_woman or is_sc_st) and inp.loanAmount >= 1000000.0:
+    elif (is_woman or is_sc_st) and (eval_amount >= 1000000.0 or (inp.projectCost and inp.projectCost >= 1000000.0)):
         top_id = "stand-up-india"
-    elif (is_woman or is_sc_st or is_obc) and inp.loanAmount > 140000.0 and inp.loanAmount < 1000000.0:
+    elif (is_woman or is_sc_st or is_obc) and eval_amount > 140000.0 and eval_amount < 1000000.0:
         top_id = "pmegp"
-    elif is_obc and inp.loanAmount <= 140000.0:
+    elif is_obc and eval_amount <= 140000.0:
         top_id = "nbcfdc-micro"
-    elif inp.loanAmount <= 50000.0:
+    elif eval_amount <= 50000.0:
         top_id = "mudra-shishu"
-    elif inp.loanAmount > 500000.0:
+    elif eval_amount > 500000.0:
         top_id = "mudra-tarun"
     else:
         top_id = "mudra-kishore"

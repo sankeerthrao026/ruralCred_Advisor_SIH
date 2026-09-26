@@ -11,6 +11,10 @@ from app.models.schemas import (
     SeasonalMoratoriumAdvice,
     FinanceAdviceRequest,
     FinanceAdviceResponse,
+    MultiYearProjectionRequest,
+    MultiYearProjectionResponse,
+    MultiYearProjectionYearSchema,
+    MultiYearFinancialAssumptionsSchema,
 )
 from app.services.gemini_service import gemini_service
 from app.services.finance_advisor_engine import (
@@ -139,6 +143,169 @@ def calculate_finance_plan(margin_capital: float) -> FinancePlanResponse:
         totalRepayment=total_paid,
         amortizationSchedule=schedule,
     )
+
+def calculate_multi_year_projection(req: MultiYearProjectionRequest) -> MultiYearProjectionResponse:
+    """
+    Deterministic Multi-Year Financial Projection Engine (Default: 5 Years).
+    Computes annual P&L, reducing-balance debt service, depreciation, and DSCR trajectory.
+    """
+    margin_capital = max(1000.0, float(req.marginCapital or 100000.0))
+    project_cost = float(req.projectCost or round(margin_capital / 0.10))
+    loan_amount = float(req.loanAmount or round(project_cost * 0.90))
+
+    is_micro = project_cost <= 140000.0
+    interest_rate_annual = float(req.interestRateAnnual or (6.5 if is_micro else 8.0))
+    tenure_years = float(req.tenureYears or (3.0 if is_micro else 7.0))
+    moratorium_months = int(req.moratoriumMonths if req.moratoriumMonths is not None else (3 if is_micro else 6))
+    projection_years = max(1, min(10, int(req.projectionYears or 5)))
+
+    rev_growth = float(req.annualRevenueGrowthPct if req.annualRevenueGrowthPct is not None else 8.0)
+    exp_growth = float(req.annualExpenseGrowthPct if req.annualExpenseGrowthPct is not None else 5.0)
+    depr_rate = float(req.assetDepreciationRatePct if req.assetDepreciationRatePct is not None else 10.0)
+
+    default_monthly_rev = max(25000.0, round(project_cost * 0.12))
+    default_monthly_exp = max(15000.0, round(default_monthly_rev * 0.65))
+
+    base_monthly_rev = float(req.baseMonthlyRevenue or default_monthly_rev)
+    base_monthly_exp = float(req.baseMonthlyExpense or default_monthly_exp)
+
+    annual_rate = interest_rate_annual / 100.0
+    quarterly_rate = annual_rate / 4.0
+    total_quarters = int(tenure_years * 4)
+    moratorium_quarters = round(moratorium_months / 3)
+    repayment_quarters = max(1, total_quarters - moratorium_quarters)
+
+    p = float(loan_amount)
+    r = quarterly_rate
+    n = repayment_quarters
+
+    if r > 0 and n > 0:
+        factor = math.pow(1.0 + r, n)
+        quarterly_emi = round((p * r * factor) / (factor - 1.0))
+    else:
+        quarterly_emi = round(p / n) if n > 0 else 0
+
+    quarter_records = []
+    curr_bal = float(loan_amount)
+
+    for q in range(1, max(total_quarters, projection_years * 4) + 1):
+        if q > total_quarters or curr_bal <= 0:
+            quarter_records.append({"interest": 0.0, "principal": 0.0, "payment": 0.0, "remaining": 0.0})
+            continue
+        is_mor = q <= moratorium_quarters
+        interest = round(curr_bal * r)
+        if is_mor:
+            quarter_records.append({"interest": float(interest), "principal": 0.0, "payment": float(interest), "remaining": curr_bal})
+        else:
+            is_last = q == total_quarters
+            principal_paid = curr_bal if is_last else min(curr_bal, max(0.0, float(quarterly_emi - interest)))
+            payment = principal_paid + interest if is_last else float(quarterly_emi)
+            curr_bal = max(0.0, curr_bal - principal_paid)
+            quarter_records.append({"interest": float(interest), "principal": float(principal_paid), "payment": float(payment), "remaining": curr_bal})
+
+    years: List[MultiYearProjectionYearSchema] = []
+    cumulative_cash = margin_capital * 0.15
+    total_interest_all = 0.0
+    dscr_sum = 0.0
+    min_dscr = 999.0
+
+    curr_ann_rev = base_monthly_rev * 12.0
+    curr_ann_exp = base_monthly_exp * 12.0
+    plant_asset_base = project_cost * 0.70
+
+    for y in range(1, projection_years + 1):
+        if y > 1:
+            curr_ann_rev = round(curr_ann_rev * (1.0 + rev_growth / 100.0))
+            curr_ann_exp = round(curr_ann_exp * (1.0 + exp_growth / 100.0))
+
+        eff_rev = round(curr_ann_rev * (11.0 / 12.0)) if y == 1 else curr_ann_rev
+        eff_exp = round(curr_ann_exp * (11.5 / 12.0)) if y == 1 else curr_ann_exp
+        noi = eff_rev - eff_exp
+
+        depr = round(plant_asset_base * (depr_rate / 100.0))
+        plant_asset_base = max(0.0, plant_asset_base - depr)
+
+        start_q = (y - 1) * 4
+        year_interest = 0.0
+        year_principal = 0.0
+        year_payment = 0.0
+        closing_bal = 0.0
+
+        for i in range(4):
+            idx = start_q + i
+            rec = quarter_records[idx] if idx < len(quarter_records) else {"interest": 0.0, "principal": 0.0, "payment": 0.0, "remaining": 0.0}
+            year_interest += rec["interest"]
+            year_principal += rec["principal"]
+            year_payment += rec["payment"]
+            closing_bal = rec["remaining"]
+
+        total_interest_all += year_interest
+        net_cash = noi - year_payment
+        cumulative_cash += net_cash
+
+        dscr = round((noi / year_payment) * 100) / 100 if year_payment > 0 else 3.5
+        min_dscr = min(min_dscr, dscr)
+        dscr_sum += dscr
+
+        years.append(
+            MultiYearProjectionYearSchema(
+                year=y,
+                grossRevenue=float(eff_rev),
+                operatingExpenses=float(eff_exp),
+                netOperatingIncome=float(noi),
+                depreciation=float(depr),
+                interestPaid=float(year_interest),
+                principalRepaid=float(year_principal),
+                totalDebtService=float(year_payment),
+                netCashFlow=float(net_cash),
+                closingCashBalance=float(cumulative_cash),
+                closingLoanBalance=float(closing_bal),
+                dscr=float(dscr),
+                isDscrHealthy=bool(dscr >= 1.25),
+            )
+        )
+
+    avg_dscr = round((dscr_sum / projection_years) * 100) / 100
+    is_bankable = bool(min_dscr >= 1.25 and cumulative_cash > 0)
+
+    summary_en = (
+        f"Strong multi-year debt service sustainability. Average DSCR of {avg_dscr:.2f}x remains above the 1.25x statutory benchmark."
+        if is_bankable
+        else f"Elevated debt burden. Minimum DSCR drops to {min_dscr:.2f}x, falling below the 1.25x threshold."
+    )
+    summary_te = (
+        f"బలమైన బహుళ-వార్షిక రుణ చెల్లింపు సామర్థ్యం. సగటు DSCR {avg_dscr:.2f}x గా ఉండి సురక్షితంగా ఉంది."
+        if is_bankable
+        else f"రుణ భారం ఎక్కువగా ఉంది. కనిష్ట DSCR {min_dscr:.2f}x గా నమోదైంది."
+    )
+
+    assumptions = MultiYearFinancialAssumptionsSchema(
+        projectionYears=projection_years,
+        baseMonthlyRevenue=base_monthly_rev,
+        baseMonthlyExpense=base_monthly_exp,
+        annualRevenueGrowthPct=rev_growth,
+        annualExpenseGrowthPct=exp_growth,
+        assetDepreciationRatePct=depr_rate,
+        projectCost=project_cost,
+        marginCapital=margin_capital,
+        loanAmount=loan_amount,
+        interestRateAnnual=interest_rate_annual,
+        tenureYears=tenure_years,
+        moratoriumMonths=moratorium_months,
+    )
+
+    return MultiYearProjectionResponse(
+        assumptions=assumptions,
+        years=years,
+        averageDscr=avg_dscr,
+        minDscr=min_dscr,
+        totalFiveYearNetCashFlow=float(cumulative_cash),
+        totalInterestPaid=float(total_interest_all),
+        isBankable=is_bankable,
+        bankabilitySummary=summary_en,
+        bankabilitySummaryTe=summary_te,
+    )
+
 
 def calculate_financial_health(
     total_income: float,

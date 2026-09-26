@@ -434,4 +434,12 @@ export const apiClient = {
       timeoutMs
     );
   },
+
+  // 11. LLM Observability & Monitoring Telemetry
+  getLlmMonitoring: async (timeoutMs: number = 2500): Promise<ApiResult<any>> => {
+    return requestJson<any>('/advisor/monitoring', {}, undefined, timeoutMs);
+  },
 };
+
+export { requestJson };
+

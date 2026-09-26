@@ -440,6 +440,7 @@ def generate_unified_business_plan(req: BusinessPlanRequest) -> BusinessPlanResp
     # 2. Run Scheme Calculation Engine
     elig_input = SchemeEligibilityInput(
         loanAmount=loan_amount,
+        projectCost=project_cost,
         category=req.category,
         gender=req.gender,
         socialCategory=req.socialCategory,
@@ -578,6 +579,7 @@ def generate_unified_business_plan(req: BusinessPlanRequest) -> BusinessPlanResp
         gender=req.gender,
         socialCategory=req.socialCategory,
         isNewEnterprise=req.isNewEnterprise,
+        hasUdyamRegistration=req.hasUdyamRegistration or False,
         generatedDate=date.today().strftime("%B %d, %Y"),
         executiveSummary=exec_summary,
         executiveSummaryTe=exec_summary_te,

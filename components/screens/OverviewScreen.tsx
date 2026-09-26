@@ -34,6 +34,10 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  AreaChart,
+  ComposedChart,
+  Area,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -61,6 +65,7 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
     entries,
     language,
     dictionary,
+    theme,
   } = useApp();
 
   const isTe = language === 'te';
@@ -262,14 +267,167 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
       </section>
 
       {/* ========================================================================= */}
-      {/* 2. KEY FINANCIAL METRIC CARDS (Clean Rounded Fintech Grid)                 */}
+      {/* 2. CASH FLOW TRAJECTORY (Full-Width Fintech Line/Area Chart)              */}
+      {/* ========================================================================= */}
+      <section className="stagger-1 rounded-2xl border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card p-6 shadow-xs flex flex-col justify-between hover-lift transition-all">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold font-sora text-base text-foreground">
+                {isTe ? 'నగదు ప్రవాహ విశ్లేషణ' : 'Cash Flow Trajectory'}
+              </h2>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                {isTe ? 'ఇంటరాక్టివ్' : 'Interactive'}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isTe ? 'ఆదాయం, ఖర్చులు మరియు నికర నగదు ప్రవాహం' : 'Historical inflow, operational expenses, and net surplus'}
+            </p>
+          </div>
+
+          {/* Timeframe Switcher */}
+          <div className="flex items-center rounded-xl border bg-muted/40 p-0.5 text-xs font-semibold self-start sm:self-auto">
+            <button
+              onClick={() => setTimeframe('7d')}
+              className={`rounded-lg px-2.5 py-1 transition-all duration-150 cursor-pointer ${
+                timeframe === '7d' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {isTe ? '7 రోజులు' : '7 Days'}
+            </button>
+            <button
+              onClick={() => setTimeframe('30d')}
+              className={`rounded-lg px-2.5 py-1 transition-all duration-150 cursor-pointer ${
+                timeframe === '30d' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {isTe ? '30 రోజులు' : '30 Days'}
+            </button>
+            <button
+              onClick={() => setTimeframe('3m')}
+              className={`rounded-lg px-2.5 py-1 transition-all duration-150 cursor-pointer ${
+                timeframe === '3m' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {isTe ? '3 నెలలు' : '3 Months'}
+            </button>
+          </div>
+        </div>
+
+        {/* Recharts Area / Line Chart */}
+        <div className="mt-6 h-64 sm:h-72 w-full relative isolate [&_.recharts-surface]:overflow-hidden">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={activeChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="incomeArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={theme === 'dark' ? '#34D399' : '#10B981'} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={theme === 'dark' ? '#34D399' : '#10B981'} stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="expenseArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={theme === 'dark' ? '#FBBF24' : '#F59E0B'} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={theme === 'dark' ? '#FBBF24' : '#F59E0B'} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke={theme === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0'}
+              />
+              <XAxis
+                dataKey="period"
+                tick={{ fontSize: 11, fill: theme === 'dark' ? '#94A3B8' : '#64748B' }}
+                stroke={theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#CBD5E1'}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: theme === 'dark' ? '#94A3B8' : '#64748B' }}
+                stroke={theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#CBD5E1'}
+                tickFormatter={(v) => `₹${v / 1000}k`}
+              />
+              <Tooltip
+                cursor={{
+                  stroke: theme === 'dark' ? '#64748B' : '#94A3B8',
+                  strokeWidth: 1.5,
+                  strokeDasharray: '4 4',
+                }}
+                formatter={(val: any, name: any) => [formatINR(Number(val)), name]}
+                contentStyle={{
+                  borderRadius: '12px',
+                  border: theme === 'dark' ? '1px solid rgba(255,255,255,0.15)' : '1px solid #CBD5E1',
+                  backgroundColor: theme === 'dark' ? '#1E293B' : '#FFFFFF',
+                  color: theme === 'dark' ? '#F8FAFC' : '#0F172A',
+                  fontSize: '12px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                }}
+              />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+              <Area
+                type="monotone"
+                dataKey="Income"
+                name={isTe ? 'ఆదాయం' : 'Income'}
+                stroke={theme === 'dark' ? '#34D399' : '#10B981'}
+                strokeWidth={2.5}
+                fillOpacity={1}
+                fill="url(#incomeArea)"
+                activeDot={{
+                  r: 6,
+                  fill: theme === 'dark' ? '#34D399' : '#10B981',
+                  stroke: theme === 'dark' ? '#FFFFFF' : '#0F172A',
+                  strokeWidth: 2.5,
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="Expense"
+                name={isTe ? 'ఖర్చులు' : 'Expense'}
+                stroke={theme === 'dark' ? '#FBBF24' : '#F59E0B'}
+                strokeWidth={2.5}
+                fillOpacity={1}
+                fill="url(#expenseArea)"
+                activeDot={{
+                  r: 6,
+                  fill: theme === 'dark' ? '#FBBF24' : '#F59E0B',
+                  stroke: theme === 'dark' ? '#FFFFFF' : '#0F172A',
+                  strokeWidth: 2.5,
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Net"
+                name={isTe ? 'నికర మిగులు' : 'Net Surplus'}
+                stroke={theme === 'dark' ? '#60A5FA' : '#3B82F6'}
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                dot={false}
+                activeDot={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span>{isTe ? 'నికర లాభం' : 'Net Margin'}: <strong className="text-foreground">{Math.round((netCashFlow / (totalIncome || 1)) * 100)}%</strong></span>
+            <span>{isTe ? 'లావాదేవీలు' : 'Transactions'}: <strong className="text-foreground">{entries.length}</strong></span>
+          </div>
+          <button
+            onClick={() => setActive('Cash Flow')}
+            className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer transition-transform active:scale-[0.98]"
+          >
+            <span>{isTe ? 'వివరణాత్మక నగదు ప్రవాహం' : 'Detailed Cash Flow'}</span>
+            <ChevronRight className="size-3.5" />
+          </button>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. KEY FINANCIAL METRIC CARDS (Inflow, Outflow, Surplus, Loan)            */}
       {/* ========================================================================= */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Card 1: Monthly Inflow / Revenue */}
-        <div className="stagger-1 hover-lift hover-glow-primary rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
+        {/* Card 1: TOTAL INFLOW */}
+        <div className="stagger-2 hover-lift rounded-2xl border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">
-              {isTe ? 'నెలవారీ రాబడి' : 'Monthly Revenue'}
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {isTe ? 'మొత్తం రాబడి' : 'TOTAL INFLOW'}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
               <ArrowUpRight className="size-3" />
@@ -288,13 +446,14 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
           </div>
         </div>
 
-        {/* Card 2: Monthly Expenses */}
-        <div className="stagger-2 hover-lift hover-glow-amber rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
+        {/* Card 2: TOTAL OUTFLOW */}
+        <div className="stagger-3 hover-lift rounded-2xl border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">
-              {isTe ? 'నెలవారీ ఖర్చులు' : 'Monthly Expenses'}
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {isTe ? 'మొత్తం ఖర్చులు' : 'TOTAL OUTFLOW'}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+              <ArrowDownRight className="size-3" />
               {entries.filter((e) => e.type === 'expense').length} {isTe ? 'ఖర్చులు' : 'outflows'}
             </span>
           </div>
@@ -310,11 +469,11 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
           </div>
         </div>
 
-        {/* Card 3: Net Cash Flow Surplus */}
-        <div className="stagger-3 hover-lift hover-glow-emerald rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
+        {/* Card 3: NET CASH SURPLUS */}
+        <div className="stagger-4 hover-lift rounded-2xl border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">
-              {isTe ? 'నికర మిగులు' : 'Net Cash Surplus'}
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {isTe ? 'నికర మిగులు' : 'NET CASH SURPLUS'}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
               {totalIncome > 0 ? Math.round((netCashFlow / totalIncome) * 100) : 0}% {isTe ? 'మార్జిన్' : 'Margin'}
@@ -332,11 +491,11 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
           </div>
         </div>
 
-        {/* Card 4: Institutional Loan Requirement */}
-        <div className="stagger-4 hover-lift hover-glow-primary rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
+        {/* Card 4: LOAN REQUIREMENT */}
+        <div className="stagger-5 hover-lift rounded-2xl border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs flex flex-col justify-between transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">
-              {isTe ? 'రుణ అర్హత' : 'Loan Requirement'}
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {isTe ? 'రుణ అవసరం' : 'LOAN REQUIREMENT'}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
               90% Credit
@@ -354,102 +513,16 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. CASH FLOW INTELLIGENCE & FINANCIAL HEALTH DIAGNOSIS                     */}
+      {/* 4. CREDIT READINESS & RECENT LOGBOOK ENTRIES (Side-by-Side Dual Grid)     */}
       {/* ========================================================================= */}
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
-        {/* Large Interactive Cash Flow Chart */}
-        <section className="stagger-5 rounded-2xl border border-border/80 bg-card p-6 shadow-xs flex flex-col justify-between hover-lift transition-all">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-semibold font-sora text-base text-foreground">
-                  {isTe ? 'నగదు ప్రవాహ విశ్లేషణ' : 'Cash Flow Trajectory'}
-                </h2>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                  {isTe ? 'ఇంటరాక్టివ్' : 'Interactive'}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {isTe ? 'ఆదాయం, ఖర్చులు మరియు నికర నగదు ప్రవాహం' : 'Historical inflow, operational expenses, and net surplus'}
-              </p>
-            </div>
-
-            {/* Timeframe Switcher */}
-            <div className="flex items-center rounded-xl border bg-muted/40 p-0.5 text-xs font-semibold self-start sm:self-auto">
-              <button
-                onClick={() => setTimeframe('7d')}
-                className={`rounded-lg px-2.5 py-1 transition-all duration-150 cursor-pointer ${
-                  timeframe === '7d' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {isTe ? '7 రోజులు' : '7 Days'}
-              </button>
-              <button
-                onClick={() => setTimeframe('30d')}
-                className={`rounded-lg px-2.5 py-1 transition-all duration-150 cursor-pointer ${
-                  timeframe === '30d' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {isTe ? '30 రోజులు' : '30 Days'}
-              </button>
-              <button
-                onClick={() => setTimeframe('3m')}
-                className={`rounded-lg px-2.5 py-1 transition-all duration-150 cursor-pointer ${
-                  timeframe === '3m' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {isTe ? '3 నెలలు' : '3 Months'}
-              </button>
-            </div>
-          </div>
-
-          {/* Recharts Bar Chart */}
-          <div className="mt-6 h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activeChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E6EC" opacity={0.6} />
-                <XAxis dataKey="period" tick={{ fontSize: 11 }} stroke="#5C6479" />
-                <YAxis tick={{ fontSize: 10 }} stroke="#5C6479" tickFormatter={(v) => `₹${v / 1000}k`} />
-                <Tooltip
-                  formatter={(val: any, name: any) => [formatINR(Number(val)), name]}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: '1px solid #E2E6EC',
-                    backgroundColor: '#FFFFFF',
-                    fontSize: '12px',
-                    boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
-                  }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Bar dataKey="Income" name={isTe ? 'ఆదాయం' : 'Income'} fill="#1B2A4A" radius={[4, 4, 0, 0]} animationDuration={800} animationEasing="ease-out" />
-                <Bar dataKey="Expense" name={isTe ? 'ఖర్చులు' : 'Expense'} fill="#E3A857" radius={[4, 4, 0, 0]} animationDuration={800} animationEasing="ease-out" />
-                <Bar dataKey="Net" name={isTe ? 'నికర మిగులు' : 'Net Cash'} fill="#2F8F5B" radius={[4, 4, 0, 0]} animationDuration={800} animationEasing="ease-out" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-4">
-              <span>{isTe ? 'నికర లాభం' : 'Net Margin'}: <strong className="text-foreground">{Math.round((netCashFlow / (totalIncome || 1)) * 100)}%</strong></span>
-              <span>{isTe ? 'లావాదేవీలు' : 'Transactions'}: <strong className="text-foreground">{entries.length}</strong></span>
-            </div>
-            <button
-              onClick={() => setActive('Cash Flow')}
-              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer transition-transform active:scale-[0.98]"
-            >
-              <span>{isTe ? 'వివరణాత్మక నగదు ప్రవాహం' : 'Detailed Cash Flow'}</span>
-              <ChevronRight className="size-3.5" />
-            </button>
-          </div>
-        </section>
-
-        {/* Financial Health Diagnostic Card */}
-        <section className="stagger-5 rounded-2xl border border-border/80 bg-card p-6 shadow-xs flex flex-col justify-between hover-lift transition-all">
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Left: Credit-Readiness Score Card (lg:col-span-5) */}
+        <section className="lg:col-span-5 rounded-2xl border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card p-6 shadow-xs flex flex-col justify-between hover-lift transition-all">
           <div>
             <div className="flex items-center justify-between pb-3 border-b">
               <div>
                 <h2 className="font-semibold font-sora text-base text-foreground">
-                  {isTe ? 'ఆర్థిక ఆరోగ్య విశ్లేషణ' : 'Credit-Readiness Diagnosis'}
+                  {isTe ? 'క్రెడిట్ సంసిద్ధత స్కోరు' : 'Credit-Readiness Score'}
                 </h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {isTe ? 'పారదర్శక 3-పారామితుల స్కోరు' : 'Transparent deterministic scoring'}
@@ -461,19 +534,50 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
               </span>
             </div>
 
-            {/* Score Display */}
-            <div className="my-5 flex items-center justify-between bg-muted/30 rounded-2xl p-4 transition-colors hover:bg-muted/40">
-              <div>
-                <p className="text-3xl font-extrabold font-sora text-primary">
-                  <AnimatedNumber value={healthScore.score} />
-                  <span className="text-sm font-medium text-muted-foreground ml-1">/ 100</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {isTe ? 'సంస్థాగత రుణ మంజూరు సంసిద్ధత' : 'Institutional credit-readiness'}
-                </p>
+            {/* Circular Gauge + Score Details */}
+            <div className="my-5 flex items-center gap-5 bg-muted/30 rounded-2xl p-4 transition-colors">
+              <div className="relative size-24 shrink-0 flex items-center justify-center">
+                <svg className="size-full -rotate-90" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    className="stroke-muted"
+                    strokeWidth="8"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    className="stroke-emerald-600 dark:stroke-emerald-400 transition-all duration-1000 ease-out"
+                    strokeWidth="8"
+                    fill="transparent"
+                    strokeDasharray={2 * Math.PI * 40}
+                    strokeDashoffset={2 * Math.PI * 40 * (1 - Math.min(100, Math.max(0, healthScore.score)) / 100)}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="text-xl font-extrabold font-sora text-foreground">
+                    {healthScore.score}
+                  </span>
+                  <span className="text-[9px] font-semibold text-muted-foreground uppercase">
+                    / 100
+                  </span>
+                </div>
               </div>
-              <div className="grid size-12 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-xs transition-transform duration-200 hover:scale-105">
-                <TrendingUp className="size-6" />
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  {isTe ? 'రుణ సంసిద్ధత' : 'Credit Readiness'}
+                </p>
+                <p className="text-sm font-semibold text-foreground mt-0.5">
+                  {isTe ? healthScore.statusTe : healthScore.status}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                  {isTe ? healthScore.summaryTe : healthScore.summary}
+                </p>
               </div>
             </div>
 
@@ -509,10 +613,6 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
                 </div>
               </div>
             </div>
-
-            <p className="mt-4 text-xs text-muted-foreground leading-relaxed italic">
-              "{isTe ? healthScore.summaryTe : healthScore.summary}"
-            </p>
           </div>
 
           <div className="pt-4 border-t mt-4">
@@ -521,6 +621,98 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
               className="w-full text-center text-xs font-semibold text-primary hover:underline cursor-pointer transition-transform active:scale-[0.99]"
             >
               {isTe ? 'పూర్తి క్రెడిట్ హెల్త్ నివేదిక చూడండి →' : 'View Full Credit Health Breakdown →'}
+            </button>
+          </div>
+        </section>
+
+        {/* Right: Recent Logbook Entries Table (lg:col-span-7) */}
+        <section className="lg:col-span-7 rounded-2xl border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card p-6 shadow-xs flex flex-col justify-between hover-lift transition-all">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b">
+              <div>
+                <h2 className="font-semibold font-sora text-base text-foreground">
+                  {isTe ? 'ఇటీవలి లాగ్‌బుక్ రికార్డులు' : 'Recent Logbook Entries'}
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {isTe ? 'మీ తాజా లాగ్‌బుక్ రికార్డులు' : 'Your latest recorded sales and operating expenses'}
+                </p>
+              </div>
+              <button
+                onClick={() => setActive('Digital Logbook')}
+                className="text-xs font-semibold text-primary hover:underline cursor-pointer transition-transform active:scale-[0.98]"
+              >
+                {isTe ? 'లాగ్‌బుక్ తెరవండి →' : 'Open Logbook →'}
+              </button>
+            </div>
+
+            {entries.length === 0 ? (
+              <div className="py-8 text-center flex flex-col items-center">
+                <p className="text-xs font-semibold text-foreground">
+                  {isTe ? 'ఇటీవలి లావాదేవీలు ఏవీ లేవు' : 'No Recent Transactions'}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
+                  {isTe
+                    ? 'మీ రోజువారీ అమ్మకాలు లేదా ఖర్చులను రికార్డ్ చేయడానికి లాగ్‌బుక్‌ను తెరవండి.'
+                    : 'Start by logging your daily sales or costs in the Digital Logbook.'}
+                </p>
+                <button
+                  onClick={() => setActive('Digital Logbook')}
+                  className="mt-3 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+                >
+                  + {isTe ? 'లావాదేవీ నమోదు చేయండి' : 'Record Transaction'}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="text-muted-foreground border-b">
+                    <tr>
+                      <th className="pb-2 font-medium">{isTe ? 'తేదీ' : 'Date'}</th>
+                      <th className="pb-2 font-medium">{isTe ? 'వివరణ' : 'Description'}</th>
+                      <th className="pb-2 font-medium">{isTe ? 'వర్గం' : 'Category'}</th>
+                      <th className="pb-2 text-right font-medium">{isTe ? 'మొత్తం' : 'Amount'}</th>
+                      <th className="pb-2 text-right font-medium">{isTe ? 'రకం' : 'Type'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {entries.slice(0, 5).map((row) => (
+                      <tr key={row.id} className="hover:bg-muted/40 transition-colors duration-150">
+                        <td className="py-3 text-muted-foreground whitespace-nowrap">{row.date}</td>
+                        <td className="py-3 font-medium text-foreground truncate max-w-40">{row.note}</td>
+                        <td className="py-3 text-muted-foreground">
+                          <span className="px-2 py-0.5 rounded-md bg-muted text-[10px] font-medium">
+                            {row.category}
+                          </span>
+                        </td>
+                        <td className={`py-3 text-right font-bold tabular-nums ${
+                          row.type === 'income' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
+                        }`}>
+                          {row.type === 'income' ? `+${formatINR(row.amount)}` : `-${formatINR(row.amount)}`}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            row.type === 'income'
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                          }`}>
+                            {row.type === 'income' ? (isTe ? 'ఆదాయం' : 'Inflow') : (isTe ? 'ఖర్చు' : 'Outflow')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-3 border-t mt-4 flex items-center justify-between text-xs text-muted-foreground">
+            <span>{isTe ? 'మొత్తం రికార్డులు' : 'Total recorded'}: <strong className="text-foreground">{entries.length}</strong></span>
+            <button
+              onClick={() => setActive('Digital Logbook')}
+              className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              {isTe ? 'అన్ని లావాదేవీలు చూడండి →' : 'View all transactions →'}
             </button>
           </div>
         </section>
@@ -775,78 +967,6 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
           </div>
         </section>
       </div>
-
-      {/* ========================================================================= */}
-      {/* 6. RECENT TRANSACTION ACTIVITY (Clean Ledger Table)                       */}
-      {/* ========================================================================= */}
-      <section className="stagger-6 rounded-2xl border border-border/80 bg-card p-6 shadow-xs hover-lift transition-all">
-        <div className="flex items-center justify-between pb-3 border-b">
-          <div>
-            <h2 className="font-semibold font-sora text-base text-foreground">
-              {isTe ? 'ఇటీవలి లావాదేవీల రికార్డులు' : 'Recent Transaction Activity'}
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {isTe ? 'మీ తాజా లాగ్‌బుక్ రికార్డులు' : 'Your latest recorded sales and operating expenses'}
-            </p>
-          </div>
-          <button
-            onClick={() => setActive('Digital Logbook')}
-            className="text-xs font-semibold text-primary hover:underline cursor-pointer transition-transform active:scale-[0.98]"
-          >
-            {isTe ? 'డిజిటల్ లాగ్‌బుక్ తెరవండి →' : 'Open Digital Logbook →'}
-          </button>
-        </div>
-
-        {entries.length === 0 ? (
-          <div className="py-8 text-center flex flex-col items-center">
-            <p className="text-xs font-semibold text-foreground">
-              {isTe ? 'ఇటీవలి లావాదేవీలు ఏవీ లేవు' : 'No Recent Transactions'}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
-              {isTe
-                ? 'మీ రోజువారీ అమ్మకాలు లేదా ఖర్చులను రికార్డ్ చేయడానికి లాగ్‌బుక్‌ను తెరవండి.'
-                : 'Start by logging your daily sales or costs in the Digital Logbook.'}
-            </p>
-            <button
-              onClick={() => setActive('Digital Logbook')}
-              className="mt-3 text-xs font-semibold text-primary hover:underline cursor-pointer transition-transform active:scale-[0.98]"
-            >
-              + {isTe ? 'లావాదేవీ నమోదు చేయండి' : 'Record Transaction'}
-            </button>
-          </div>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="text-muted-foreground border-b">
-                <tr>
-                  <th className="pb-2 font-medium">{isTe ? 'వివరణ' : 'Description'}</th>
-                  <th className="pb-2 font-medium">{isTe ? 'వర్గం' : 'Category'}</th>
-                  <th className="pb-2 font-medium">{isTe ? 'తేదీ' : 'Date'}</th>
-                  <th className="pb-2 text-right font-medium">{isTe ? 'మొత్తం' : 'Amount'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {entries.slice(0, 5).map((row) => (
-                  <tr key={row.id} className="hover:bg-muted/40 transition-colors duration-150">
-                    <td className="py-3 font-medium text-foreground truncate max-w-48">{row.note}</td>
-                    <td className="py-3 text-muted-foreground">
-                      <span className="px-2 py-0.5 rounded-md bg-muted text-[10px] font-medium">
-                        {row.category}
-                      </span>
-                    </td>
-                    <td className="py-3 text-muted-foreground whitespace-nowrap">{row.date}</td>
-                    <td className={`py-3 text-right font-bold tabular-nums ${
-                      row.type === 'income' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
-                    }`}>
-                      {row.type === 'income' ? `+${formatINR(row.amount)}` : `-${formatINR(row.amount)}`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

@@ -183,6 +183,7 @@ class RAGService:
         risks_list: List[str],
         retrieved_items: List[Dict[str, Any]],
         language: str = "en",
+        commercial_hubs: Optional[List[str]] = None,
     ) -> str:
         """Constructs a clean, compact structured JSON context instead of raw document dumps."""
         is_te = language == "te"
@@ -209,6 +210,7 @@ class RAGService:
         compact = {
             "district": clean_dist,
             "category": clean_cat,
+            "commercial_centers_and_mandi_hubs": commercial_hubs or [],
             "mandi_trends": clean_mandi or "Standard mandi off-take",
             "demand_seasonality": seasonality or "Year-round demand",
             "pricing_benchmark": clean_pricing,
@@ -258,7 +260,8 @@ class RAGService:
             clean_cat = clean_for_english(cat_str)
             base_cat_display = clean_for_telugu(cat_str) if is_te else clean_cat
 
-        print(f"[ADVISOR DIAGNOSTICS] Query: '{req.userQuery}' | Detected Domain: '{detected_domain}' | Intent: '{intent_info['intent']}' | Target: {intent_info.get('targetAmount')} | District: '{clean_loc}' | Category: '{clean_cat}'")
+        safe_query = (req.userQuery or "").encode("ascii", "replace").decode("ascii")
+        print(f"[ADVISOR DIAGNOSTICS] Query: '{safe_query}' | Detected Domain: '{detected_domain}' | Intent: '{intent_info['intent']}' | Target: {intent_info.get('targetAmount')} | District: '{clean_loc}' | Category: '{clean_cat}'")
 
         # 2. Semantic ChromaDB Query Construction for Active Domain
         if req.userQuery and req.userQuery.strip():
@@ -335,9 +338,34 @@ class RAGService:
                     risks_raw = line.replace("Locality Operating Risks:", "").strip()
                     risks_list = [r.strip() for r in risks_raw.split(";") if r.strip()]
 
+        dist_commercial_hubs = []
         if best_dist_item:
             d_meta = best_dist_item.get("metadata", {})
             district_name = d_meta.get("name", district_name)
+            d_doc = best_dist_item.get("document", "")
+            for line in d_doc.splitlines():
+                if "commercial centers" in line.lower() or "mandi hubs" in line.lower():
+                    parts = line.split(":", 1)
+                    if len(parts) > 1:
+                        dist_commercial_hubs = [h.strip() for h in parts[1].split(",") if h.strip()]
+                        break
+
+        if not dist_commercial_hubs:
+            try:
+                pop_file = settings.DATA_DIR / "population-data.json"
+                if pop_file.exists():
+                    with open(pop_file, "r", encoding="utf-8") as f:
+                        pdata = json.load(f).get("districts", {})
+                    for d_key, d_val in pdata.items():
+                        if d_key.lower() in clean_loc.lower() or clean_loc.lower() in d_key.lower() or clean_loc.lower() in d_val.get("name", "").lower():
+                            hubs = d_val.get("commercialHubs", [])
+                            if isinstance(hubs, list):
+                                dist_commercial_hubs = hubs
+                            elif isinstance(hubs, str):
+                                dist_commercial_hubs = [h.strip() for h in hubs.split(",") if h.strip()]
+                            break
+            except Exception as e:
+                print(f"[WARN] Failed to read population-data.json: {e}")
 
         # Clean names based on target language
         display_category = clean_for_telugu(category_name) if is_te else clean_for_english(category_name)
@@ -358,6 +386,7 @@ class RAGService:
             risks_list=display_risks,
             retrieved_items=retrieved_items,
             language=req.language,
+            commercial_hubs=dist_commercial_hubs,
         )
 
         # 4. Deterministic Calculation Summary if applicable
@@ -400,6 +429,15 @@ class RAGService:
 
         if gemini_service.is_available():
             if req.userQuery and req.userQuery.strip():
+                location_directive = ""
+                if intent_info.get("intent") == "location_selection":
+                    hub_str = ", ".join(dist_commercial_hubs) if dist_commercial_hubs else display_district
+                    location_directive = (
+                        f"\n\nLOCATION SELECTION MANDATE: The user is asking for suitable areas/locations within {display_district}. "
+                        f"You MUST recommend specific commercial hubs, mandals, or towns identified in the Grounding Context (e.g. from Mandi Hubs / Commercial Centers: {hub_str}) "
+                        f"and explain why each area is advantageous for {display_category} (e.g., fodder availability, water resources, milk chilling centers, transport/market access). "
+                        f"Do NOT provide only generic criteria; name specific local locations from the district context."
+                    )
                 prompt_query = (
                     f"BUSINESS PROFILE:\n"
                     f"- Enterprise Category: {display_category} (Domain: {detected_domain})\n"
@@ -407,7 +445,7 @@ class RAGService:
                     f"- Promoter Margin Capital: ₹{req.marginCapital:,.0f}\n\n"
                     f"CURRENT USER QUESTION:\n"
                     f"{req.userQuery}\n"
-                    f"{calc_summary}\n\n"
+                    f"{calc_summary}{location_directive}\n\n"
                     f"STRICT INSTRUCTION: In the 'reply' field, answer the user's current question directly. "
                     f"Focus 100% on {display_category} ({detected_domain}). DO NOT mention any other unrelated business domains (e.g. if category is Handloom, do NOT mention cows/dairy/milk). "
                     f"Provide domain-grounded actionable facts."
@@ -453,15 +491,54 @@ class RAGService:
                 risks=display_risks,
                 margin_capital=req.marginCapital,
                 intent_info=intent_info,
+                commercial_hubs=dist_commercial_hubs,
             )
+
+        # Sanitize nested structures to ensure robust validation
+        raw_mr = ai_data.get("marketReach") if isinstance(ai_data.get("marketReach"), dict) else {}
+        raw_opp = ai_data.get("opportunityAnalysis") if isinstance(ai_data.get("opportunityAnalysis"), dict) else {}
+        raw_swot = ai_data.get("swot") if isinstance(ai_data.get("swot"), dict) else {}
+        raw_cd = ai_data.get("competitorDensity") if isinstance(ai_data.get("competitorDensity"), dict) else {}
+        raw_ps = ai_data.get("pricingSuggestion") if isinstance(ai_data.get("pricingSuggestion"), dict) else {}
+
+        clean_mr = {
+            "headline": raw_mr.get("headline") or (f"{display_district} మార్కెట్ పరిధి" if is_te else f"{display_district} Market Reach"),
+            "details": raw_mr.get("details") or (f"{display_category} వ్యాపార విస్తరణ" if is_te else f"{display_category} market coverage"),
+            "targetSegment": raw_mr.get("targetSegment") or ("గ్రామీణ వినియోగదారులు" if is_te else "Rural household & commercial consumers"),
+            "estimatedLocalDemand": raw_mr.get("estimatedLocalDemand") or ("స్థిరమైన స్థానిక గిరాకీ" if is_te else "Consistent local demand"),
+        }
+        clean_opp = {
+            "overview": raw_opp.get("overview") or (f"{display_district} లో {display_category} అవకాశాలు" if is_te else f"Growth opportunities for {display_category} in {display_district}"),
+            "primaryDrivers": raw_opp.get("primaryDrivers") if isinstance(raw_opp.get("primaryDrivers"), list) and raw_opp.get("primaryDrivers") else (["స్థానిక గిరాకీ", "మంచి రవాణా"] if is_te else ["Local consumer demand", "Favorable distribution"]),
+            "seasonalOpportunity": raw_opp.get("seasonalOpportunity") or (seasonality_text or ("పండుగల సీజన్లలో గరిష్ట గిరాకీ" if is_te else "Peak seasonal demand")),
+        }
+        clean_swot = {
+            "strengths": raw_swot.get("strengths") if isinstance(raw_swot.get("strengths"), list) and raw_swot.get("strengths") else (["స్థానిక నైపుణ్యం"] if is_te else ["Local operational strength"]),
+            "weaknesses": raw_swot.get("weaknesses") if isinstance(raw_swot.get("weaknesses"), list) and raw_swot.get("weaknesses") else (["వర్కింగ్ క్యాపిటల్ పరిమితి"] if is_te else ["Working capital constraints"]),
+            "opportunities": raw_swot.get("opportunities") if isinstance(raw_swot.get("opportunities"), list) and raw_swot.get("opportunities") else (["సమీప మార్కెట్లు"] if is_te else ["Access to expanding town markets"]),
+            "threats": raw_swot.get("threats") if isinstance(raw_swot.get("threats"), list) and raw_swot.get("threats") else (["కాలానుగుణ ధరల మార్పులు"] if is_te else ["Seasonal price fluctuations"]),
+        }
+        density_val = str(raw_cd.get("densityLevel", "Moderate")).capitalize()
+        if density_val not in ("Low", "Moderate", "High"):
+            density_val = "High" if "high" in density_val.lower() else ("Low" if "low" in density_val.lower() else "Moderate")
+        clean_cd = {
+            "densityLevel": density_val,
+            "description": raw_cd.get("description") or ("స్థానికంగా తగినంత పోటీ ఉంది." if is_te else "Moderate local competition."),
+            "mitigationStrategy": raw_cd.get("mitigationStrategy") or ("నాణ్యత, సమయపాలన ద్వారా కస్టమర్లను నిలబెట్టుకోండి." if is_te else "Focus on quality and prompt delivery."),
+        }
+        clean_ps = {
+            "recommendedBand": raw_ps.get("recommendedBand") or display_pricing,
+            "benchmarkComparison": raw_ps.get("benchmarkComparison") or ("స్థానిక మండి రేట్లకు అనుగుణంగా ఉంది" if is_te else "Aligned with district APMC benchmarks"),
+            "marginTarget": raw_ps.get("marginTarget") or display_margin,
+        }
 
         response = AdvisorAnalyzeResponse(
             reply=ai_data.get("reply"),
-            marketReach=MarketReach(**ai_data.get("marketReach", {})),
-            opportunityAnalysis=OpportunityAnalysis(**ai_data.get("opportunityAnalysis", {})),
-            swot=SWOTAnalysis(**ai_data.get("swot", {})),
-            competitorDensity=CompetitorDensity(**ai_data.get("competitorDensity", {})),
-            pricingSuggestion=PricingSuggestion(**ai_data.get("pricingSuggestion", {})),
+            marketReach=MarketReach(**clean_mr),
+            opportunityAnalysis=OpportunityAnalysis(**clean_opp),
+            swot=SWOTAnalysis(**clean_swot),
+            competitorDensity=CompetitorDensity(**clean_cd),
+            pricingSuggestion=PricingSuggestion(**clean_ps),
             risks=ai_data.get(
                 "risks",
                 ["కాలానుగుణ మార్కెట్ హెచ్చుతగ్గులు", "ముడిసరుకుల ధరల మార్పులు"] if is_te else ["Seasonal market volatility", "Raw material price fluctuations"]
@@ -513,6 +590,7 @@ class RAGService:
         risks: Optional[List[str]] = None,
         margin_capital: float = 100000.0,
         intent_info: Optional[Dict[str, Any]] = None,
+        commercial_hubs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Intelligent, calculation-aware grounded fallback that produces exact mathematical answers
@@ -534,6 +612,7 @@ class RAGService:
 
         # 1. Location Selection / Cluster & Placement Guidance
         if intent == "location_selection":
+            hub_list = ", ".join(commercial_hubs) if commercial_hubs else f"{district_name} Rural Belt"
             if domain == "handloom_weaving":
                 if is_te:
                     reply_text = (
@@ -565,76 +644,92 @@ class RAGService:
                 if is_te:
                     reply_text = (
                         f"{district_name} లో కిరాణా / జనరల్ స్టోర్ కోసం అనువైన స్థలాలు:\n\n"
-                        f"1. బస్టాండ్ జంక్షన్ & గ్రామ పంచాయతీ కేంద్రం: నిరంతర ప్రయాణికులు మరియు స్థానికుల రాకపోకలు ఉంటాయి.\n"
-                        f"2. ప్రధాన నివాస కాలనీ ప్రవేశ ద్వారం: ఉదయం మరియు సాయంత్రం వేళల్లో పాల, కిరాణా కొనుగోళ్లకు అనుకూలం.\n"
-                        f"3. స్థల ఎంపిక నియమం: ఇప్పటికే ఉన్న పెద్ద కిరాణా దుకాణానికి కనీసం 150 మీటర్ల దూరంలో షాపును ఏర్పాటు చేయండి."
+                        f"1. ప్రధాన వాణిజ్య కేంద్రాలు: {hub_list}.\n"
+                        f"2. బస్టాండ్ జంక్షన్ & గ్రామ పంచాయతీ కేంద్రం: నిరంతర ప్రయాణికులు మరియు స్థానికుల రాకపోకలు ఉంటాయి.\n"
+                        f"3. ప్రధాన నివాస కాలనీ ప్రవేశ ద్వారం: ఉదయం మరియు సాయంత్రం వేళల్లో పాల, కిరాణా కొనుగోళ్లకు అనుకూలం.\n"
+                        f"4. స్థల ఎంపిక నియమం: ఇప్పటికే ఉన్న పెద్ద కిరాణా దుకాణానికి కనీసం 150 మీటర్ల దూరంలో షాపును ఏర్పాటు చేయండి."
                     )
                 else:
                     reply_text = (
                         f"Prime location strategy for a Kirana & General Store in {district_name}:\n\n"
-                        f"1. Mandal Bus Stand Junction / Gram Panchayat Center: Highest daily pedestrian footfall and morning/evening commuters.\n"
-                        f"2. Residential Colony Entrance / Main Village Thorougfare: Steady recurring household purchases for daily provisions.\n"
-                        f"3. Site Evaluation Rule: Ensure at least 150-200 meters separation from established wholesale general stores to protect pricing power."
+                        f"1. Recommended Commercial Centers to Evaluate: {hub_list}.\n"
+                        f"2. Mandal Bus Stand Junction / Gram Panchayat Center: Highest daily pedestrian footfall and morning/evening commuters.\n"
+                        f"3. Residential Colony Entrance / Main Village Thorougfare: Steady recurring household purchases for daily provisions.\n"
+                        f"4. Site Evaluation Rule: Ensure at least 150-200 meters separation from established wholesale general stores to protect pricing power."
                     )
             elif domain == "poultry_farming":
                 if is_te:
                     reply_text = (
                         f"{district_name} లో పౌల్ట్రీ ఫామ్ ఏర్పాటుకు అనువైన స్థలం:\n\n"
-                        f"1. నివాస ప్రాంతాలకు కనీసం 500 మీటర్ల దూరంలో ఉన్న వ్యవసాయ భూమి (జీవ భద్రత మరియు కాలుష్య నిబంధనల ప్రకారం).\n"
-                        f"2. మేత రవాణా మరియు కోళ్ల పికప్ వ్యాన్ల కోసం వర్షాకాలంలో కూడా అనుకూలమైన పక్కా రోడ్డు కనెక్టివిటీ.\n"
-                        f"3. 24 గంటల నిరంతర నీటి సరఫరా మరియు సింగిల్/త్రీ-ఫేజ్ విద్యుత్ కనెక్షన్."
+                        f"1. ప్రధాన మార్కెట్ కేంద్రాలు & ఫీడ్ సరఫరా: {hub_list}.\n"
+                        f"2. నివాస ప్రాంతాలకు కనీసం 500 మీటర్ల దూరంలో ఉన్న వ్యవసాయ భూమి (జీవ భద్రత మరియు కాలుష్య నిబంధనల ప్రకారం).\n"
+                        f"3. మేత రవాణా మరియు కోళ్ల పికప్ వ్యాన్ల కోసం వర్షాకాలంలో కూడా అనుకూలమైన పక్కా రోడ్డు కనెక్టివిటీ.\n"
+                        f"4. 24 గంటల నిరంతర నీటి సరఫరా మరియు సింగిల్/త్రీ-ఫేజ్ విద్యుత్ కనెక్షన్."
                     )
                 else:
                     reply_text = (
                         f"Site selection guidelines for a Poultry Broiler Unit in {district_name}:\n\n"
-                        f"1. Elevated agricultural parcel located at least 500 meters away from dense residential habitations for bio-security.\n"
-                        f"2. All-weather motorable approach road to facilitate feed supply trucks and live bird off-take vehicles.\n"
-                        f"3. Dependable 24/7 groundwater source and reliable electricity connection for ventilation and cooling fans."
+                        f"1. Proximity to Feed Depots & Off-take Hubs: {hub_list}.\n"
+                        f"2. Elevated agricultural parcel located at least 500 meters away from dense residential habitations for bio-security.\n"
+                        f"3. All-weather motorable approach road to facilitate feed supply trucks and live bird off-take vehicles.\n"
+                        f"4. Dependable 24/7 groundwater source and reliable electricity connection for ventilation and cooling fans."
                     )
             elif domain == "tailoring_garments":
                 if is_te:
                     reply_text = (
                         f"{district_name} లో టైలరింగ్ & బోటిక్ షాప్ కోసం ఉత్తమ స్థలాలు:\n\n"
-                        f"1. ప్రధాన బట్టల మార్కెట్ లైన్: కస్టమర్లు బట్టలు కొనుగోలు చేసిన వెంటనే కుట్టించడానికి వస్తారు.\n"
-                        f"2. మహిళా కళాశాలలు లేదా రెడీమేడ్ షోరూమ్‌ల సమీపంలోని జంక్షన్.\n"
-                        f"3. కస్టమర్ ట్రయల్స్ మరియు మగ్గం వర్క్ కోసం తగినంత స్థలం ఉండే గ్రౌండ్ లేదా ఫస్ట్ ఫ్లోర్ షాప్."
+                        f"1. ప్రధాన వాణిజ్య క్లస్టర్లు: {hub_list}.\n"
+                        f"2. ప్రధాన బట్టల మార్కెట్ లైన్: కస్టమర్లు బట్టలు కొనుగోలు చేసిన వెంటనే కుట్టించడానికి వస్తారు.\n"
+                        f"3. మహిళా కళాశాలలు లేదా రెడీమేడ్ షోరూమ్‌ల సమీపంలోని జంక్షన్.\n"
+                        f"4. కస్టమర్ ట్రయల్స్ మరియు మగ్గం వర్క్ కోసం తగినంత స్థలం ఉండే గ్రౌండ్ లేదా ఫస్ట్ ఫ్లోర్ షాప్."
                     )
                 else:
                     reply_text = (
                         f"Location recommendations for a Tailoring & Boutique setup in {district_name}:\n\n"
-                        f"1. Main Bazaar Textile Lane: Captures immediate conversion from customers purchasing unstitched dress materials and saree fabrics.\n"
-                        f"2. Proximity to Women's Degree Colleges / Commercial Shopping Centers with high female pedestrian traffic.\n"
-                        f"3. Adequate space for dedicated trial rooms and Maggam embroidery worktables."
+                        f"1. Commercial Centers & Market Corridors: {hub_list}.\n"
+                        f"2. Main Bazaar Textile Lane: Captures immediate conversion from customers purchasing unstitched dress materials and saree fabrics.\n"
+                        f"3. Proximity to Women's Degree Colleges / Commercial Shopping Centers with high female pedestrian traffic.\n"
+                        f"4. Adequate space for dedicated trial rooms and Maggam embroidery worktables."
                     )
             elif domain == "dairy_farming":
                 if is_te:
                     reply_text = (
-                        f"{district_name} లో పాడి పరిశ్రమ ఏర్పాటుకు అనువైన స్థలం:\n\n"
-                        f"1. డైరీ కోఆపరేటివ్ సొసైటీ లేదా బల్క్ మిల్క్ కూలర్ (BMC) మార్గానికి 2-3 కి.మీ పరిధిలో ఉండాలి.\n"
-                        f"2. పచ్చిగడ్డి సాగుకు అనువైన నీటి వనరు మరియు సులభమైన రవాణా రోడ్డు ఉండాలి.\n"
-                        f"3. గాలి, వెలుతురు ధారాళంగా వచ్చే ఎత్తైన ప్రదేశం షెడ్ నిర్మాణానికి అనుకూలం."
+                        f"{district_name} లో పాడి పరిశ్రమ (Dairy Farm) ఏర్పాటుకు అనువైన ప్రాంతాలు మరియు స్థల ఎంపిక మార్గదర్శకాలు:\n\n"
+                        f"1. {district_name} లోని సంభావ్య వాణిజ్య & మార్కెట్ కేంద్రాలు:\n"
+                        f"• ప్రధాన కేంద్రాలు: {hub_list}. ఈ ప్రాంతాల చుట్టుపక్కల పాల శీతలీకరణ కేంద్రాలు (BMCs), రవాణా సౌకర్యాలు మరియు పశుగ్రాస లభ్యత అధికంగా ఉంటాయి.\n\n"
+                        f"2. స్థల ఎంపికకు 4 కీలక అంశాలు:\n"
+                        f"• పాల సేకరణ నెట్‌వర్క్: డైరీ కోఆపరేటివ్ సొసైటీ లేదా ప్రైవేట్ బల్క్ మిల్క్ కూలర్ (BMC) మార్గానికి 2-3 కి.మీ పరిధిలో ఉండాలి.\n"
+                        f"• పశుగ్రాసం & నీటి వనరు: పచ్చిగడ్డి (హైబ్రిడ్ నేపియర్ / CO-4) సాగుకు తగినంత భూగర్భ జలాలు మరియు బోర్ వెల్ సౌకర్యం ఉండాలి.\n"
+                        f"• రవాణా కనెక్టివిటీ: వర్షాకాలంలో కూడా పాల వ్యాన్లు సులభంగా వచ్చిపోయేలా ఆల్-వెదర్ పక్కా రోడ్డు ఉండాలి.\n"
+                        f"• షెడ్ నిర్మాణం: గాలి, వెలుతురు ధారాళంగా వచ్చే ఎత్తైన, నీరు నిలవని పొడి ప్రదేశం పశువుల ఆరోగ్యానికి అనుకూలం."
                     )
                 else:
                     reply_text = (
-                        f"Location criteria for setting up a Dairy Farm in {district_name}:\n\n"
-                        f"1. Proximity to Bulk Milk Coolers (BMC) or cooperative milk route (within 2-3 km) to minimize spoilage and transport overhead.\n"
-                        f"2. Reliable perennial water source for green fodder irrigation (Super Napier/Co-4) and cattle drinking.\n"
-                        f"3. Elevated, well-drained terrain with east-west orientation for optimal shed ventilation."
+                        f"Strategic location recommendations for establishing a Dairy Farm in {district_name}:\n\n"
+                        f"1. Potential Areas & Commercial Hubs to Evaluate in {district_name}:\n"
+                        f"• Key Hubs & Centers: {hub_list}. Rural and peri-urban mandals around these commercial centers offer robust connectivity, established milk collection routes, and direct veterinary access.\n\n"
+                        f"2. Four Critical Site Selection Criteria:\n"
+                        f"• Milk Route & Chilling Proximity: Locate within 2-3 km of a cooperative (e.g. Vijaya/Amul) milk collection center or Bulk Milk Chilling Unit (BMC) to eliminate spoilage risks.\n"
+                        f"• Fodder & Groundwater Security: Assured borewell/irrigation supply to support intensive green fodder plots (CO-4, Hybrid Napier, or Lucerne).\n"
+                        f"• Road & Transport Access: Motorable all-weather road access capable of handling daily morning/evening milk pickup vehicles and feed delivery trucks.\n"
+                        f"• Bio-Security & Drainage: Elevated, well-ventilated parcel away from flood zones with proper effluent drainage to prevent livestock infections."
                     )
             else:
                 if is_te:
                     reply_text = (
-                        f"{district_name} లో {category_name} వ్యాపారానికి అనువైన స్థలం:\n\n"
-                        f"1. మండల ప్రధాన కూడలి లేదా వాణిజ్య మార్కెట్ యార్డ్ పరిసరాలు.\n"
-                        f"2. రవాణా సౌకర్యం, విద్యుత్ లభ్యత మరియు తక్కువ అద్దె ఉండే ప్రాంతాన్ని ఎంచుకోండి.\n"
-                        f"3. కస్టమర్ రద్దీ మరియు సరుకు రవాణా రెండింటికీ అనుకూలంగా ఉండాలి."
+                        f"{district_name} లో {category_name} వ్యాపారానికి అనువైన స్థలాలు మరియు మార్గదర్శకాలు:\n\n"
+                        f"1. ప్రధాన వాణిజ్య కేంద్రాలు: {hub_list}.\n"
+                        f"2. మండల ప్రధాన కూడలి లేదా వాణిజ్య మార్కెట్ యార్డ్ పరిసరాలు.\n"
+                        f"3. రవాణా సౌకర్యం, విద్యుత్ లభ్యత మరియు తక్కువ అద్దె ఉండే ప్రాంతాన్ని ఎంచుకోండి.\n"
+                        f"4. కస్టమర్ రద్దీ మరియు సరుకు రవాణా రెండింటికీ అనుకూలంగా ఉండాలి."
                     )
                 else:
                     reply_text = (
                         f"Location selection strategy for {category_name} in {district_name}:\n\n"
-                        f"1. Mandal Commercial Center / Market Yard corridor with high consumer density.\n"
-                        f"2. Assure multi-modal transport accessibility, reliable utility connections, and reasonable shop rentals.\n"
-                        f"3. Prioritize customer visibility while keeping fixed overhead under 10% of gross margin."
+                        f"1. Recommended Commercial Centers to Evaluate: {hub_list}.\n"
+                        f"2. Mandal Commercial Center / Market Yard corridor with high consumer density.\n"
+                        f"3. Assure multi-modal transport accessibility, reliable utility connections, and reasonable shop rentals.\n"
+                        f"4. Prioritize customer visibility while keeping fixed overhead under 10% of gross margin."
                     )
 
         # 2. Investment Decision Evaluation (e.g., AC, Jacquard, Freezer)

@@ -21,12 +21,16 @@ import {
   Trash2,
   Check,
   IndianRupee,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 export function SettingsScreen({ setActive }: { setActive?: (value: string) => void }) {
   const {
     language,
     setLanguage,
+    theme,
+    setTheme,
     inputMode,
     setInputMode,
     backendMode,
@@ -210,12 +214,74 @@ export function SettingsScreen({ setActive }: { setActive?: (value: string) => v
         </div>
       </section>
 
-      {/* 2. Currency Display Preference */}
+      {/* 2. Visual Theme Preference */}
       <section className="rounded-2xl border bg-card p-6 shadow-xs card-lift stagger-3">
+        <div className="pb-3 border-b flex items-center gap-2">
+          {theme === 'dark' ? <Moon className="size-4 text-primary" /> : <Sun className="size-4 text-amber-500" />}
+          <h3 className="font-bold font-sora text-base text-foreground">
+            {isTe ? '2. డిస్‌ప్లే థీమ్' : '2. Display Theme & Visual Mode'}
+          </h3>
+        </div>
+
+        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+          {isTe
+            ? 'మీకు అనుకూలమైన రూపాన్ని ఎంచుకోండి. లైట్ మోడ్ SIH వైట్ ఇంటర్‌ఫేస్‌ను, డార్క్ మోడ్ రూరల్‌క్రెడ్ ఒరిజినల్ డార్క్ థీమ్‌ను అందిస్తుంది.'
+            : 'Select your preferred visual mode. Light mode provides the SIH white fintech interface, while Dark mode preserves the original RuralCred dark theme.'}
+        </p>
+
+        <div className="grid sm:grid-cols-2 gap-3 mt-4">
+          {/* Light Theme */}
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`p-4 rounded-xl border text-left flex items-center justify-between cursor-pointer transition-all ${
+              theme === 'light'
+                ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
+                : 'bg-muted/30 hover:bg-muted text-muted-foreground border-border'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="grid size-9 place-items-center rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                <Sun className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{isTe ? 'లైట్ మోడ్ (SIH వైట్)' : 'Light Theme (SIH White)'}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{isTe ? 'తెల్లటి కార్డ్‌లు, క్లీన్ ఫిన్‌టెక్ స్టైల్' : 'White cards, clean fintech layout'}</p>
+              </div>
+            </div>
+            {theme === 'light' && <Check className="size-4 text-primary" />}
+          </button>
+
+          {/* Dark Theme */}
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`p-4 rounded-xl border text-left flex items-center justify-between cursor-pointer transition-all ${
+              theme === 'dark'
+                ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
+                : 'bg-muted/30 hover:bg-muted text-muted-foreground border-border'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="grid size-9 place-items-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <Moon className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{isTe ? 'డార్క్ మోడ్ (రూరల్‌క్రెడ్ డార్క్)' : 'Dark Theme (RuralCred Dark)'}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{isTe ? 'క్లాసిక్ డార్క్ ఫిన్‌టెక్ ఇంటర్‌ఫేస్' : 'Original high-contrast dark mode'}</p>
+              </div>
+            </div>
+            {theme === 'dark' && <Check className="size-4 text-primary" />}
+          </button>
+        </div>
+      </section>
+
+      {/* 3. Currency Display Preference */}
+      <section className="rounded-2xl border bg-card p-6 shadow-xs card-lift stagger-4">
         <div className="pb-3 border-b flex items-center gap-2">
           <IndianRupee className="size-4 text-primary" />
           <h3 className="font-bold font-sora text-base text-foreground">
-            {isTe ? '2. కరెన్సీ ప్రదర్శన' : '2. Currency & Numbering Format'}
+            {isTe ? '3. కరెన్సీ ప్రదర్శన' : '3. Currency & Numbering Format'}
           </h3>
         </div>
 

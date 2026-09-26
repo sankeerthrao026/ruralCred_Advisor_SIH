@@ -92,6 +92,41 @@ export function CashFlowScreen({ setActive }: { setActive?: (tab: string) => voi
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Screen Header Banner */}
+      <div className="rounded-2xl border bg-card p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 hover-lift transition-all">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-semibold flex items-center gap-1">
+              <TrendingUp className="size-3.5" />
+              {isTe ? 'నగదు ప్రవాహ విశ్లేషణ' : 'Cash Flow Intelligence'}
+            </span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
+              {entries.length} {isTe ? 'ధ్రువీకరించిన లావాదేవీలు' : 'live ledger entries'}
+            </span>
+          </div>
+          <h2 className="mt-2 text-xl font-bold font-sora tracking-tight text-foreground">
+            {isTe ? 'నగదు ప్రవాహం & నిర్వహణ మిగులు' : 'Cash Flow & Operational Liquidity'}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground max-w-xl">
+            {isTe
+              ? 'మీ డిజిటల్ లాగ్‌బుక్ రికార్డుల ఆధారంగా లెక్కించబడిన వాస్తవ రాబడులు, వ్యయాలు మరియు నికర నగదు ప్రవాహం.'
+              : 'Empirical money-in vs. money-out trajectory, operating margin retention, and category cost distribution.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            onClick={() => setActive?.('Digital Logbook')}
+            className="flex items-center gap-1.5 font-semibold text-xs bg-primary text-primary-foreground shadow-xs cursor-pointer active:scale-95"
+          >
+            <PlusCircle className="size-3.5" />
+            <span>{isTe ? 'లాగ్‌బుక్‌కు వెళ్లండి' : 'Add Ledger Entry'}</span>
+          </Button>
+        </div>
+      </div>
+
       {/* Top 4 Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Inflow */}

@@ -28,6 +28,9 @@ import {
   FileCheck,
   HelpCircle,
 } from 'lucide-react';
+import { FeasibilityScoreCard } from '@/components/feasibility/FeasibilityScoreCard';
+import { ScenarioSimulatorCard } from '@/components/simulator/ScenarioSimulatorCard';
+import { MultiYearProjectionTable } from '@/components/projections/MultiYearProjectionTable';
 
 export function BusinessPlanScreen() {
   const { profile, finance, language, dictionary, entries, totalIncome, totalExpenses } = useApp();
@@ -43,13 +46,14 @@ export function BusinessPlanScreen() {
   const availableSchemes: SchemeCalculationResult[] = useMemo(() => {
     return calculateAllEligibleSchemes({
       loanAmount: finance.loanAmount || 900000,
+      projectCost: finance.projectCost || 1000000,
       category: profile.category || 'Dairy Farming',
       gender: profile.gender || 'female',
       socialCategory: profile.socialCategory || 'OBC',
       locationType: 'rural',
       isNewEnterprise: true,
     });
-  }, [finance.loanAmount, profile.category, profile.gender, profile.socialCategory]);
+  }, [finance.loanAmount, finance.projectCost, profile.category, profile.gender, profile.socialCategory]);
 
   const activeScheme = useMemo(() => {
     if (selectedSchemeId) {
@@ -84,6 +88,7 @@ export function BusinessPlanScreen() {
       monthlyRevenueEstimate: monthlyRev,
       monthlyExpenseEstimate: monthlyExp,
       language: isTe ? 'te' : 'en',
+      hasUdyamRegistration: profile.hasUdyamRegistration,
     };
 
     try {
@@ -612,7 +617,14 @@ export function BusinessPlanScreen() {
             </ul>
           </div>
 
-          {/* Section 9: Formal Declaration & Signatures Block */}
+          {/* Section 9: Feasibility & Sensitivity Stress Test Annexures */}
+          <div className="flex flex-col gap-6 pt-2">
+            <FeasibilityScoreCard />
+            <ScenarioSimulatorCard />
+            <MultiYearProjectionTable />
+          </div>
+
+          {/* Section 10: Formal Declaration & Signatures Block */}
           <div className="border-t pt-6 flex flex-col gap-6">
             <div className="rounded-xl border bg-muted/20 p-4 text-xs text-muted-foreground">
               <p className="font-semibold text-foreground mb-1">

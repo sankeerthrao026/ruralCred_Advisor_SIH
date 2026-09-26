@@ -277,3 +277,253 @@ export function calculateFinancialHealthScore(params: {
     ],
   };
 }
+
+export interface MultiYearProjectionYear {
+  year: number;
+  grossRevenue: number;
+  operatingExpenses: number;
+  netOperatingIncome: number; // EBITDA
+  depreciation: number;
+  interestPaid: number;
+  principalRepaid: number;
+  totalDebtService: number;
+  netCashFlow: number;
+  closingCashBalance: number;
+  closingLoanBalance: number;
+  dscr: number;
+  isDscrHealthy: boolean;
+}
+
+export interface MultiYearFinancialAssumptions {
+  projectionYears: number;
+  baseMonthlyRevenue: number;
+  baseMonthlyExpense: number;
+  annualRevenueGrowthPct: number;
+  annualExpenseGrowthPct: number;
+  assetDepreciationRatePct: number;
+  projectCost: number;
+  marginCapital: number;
+  loanAmount: number;
+  interestRateAnnual: number;
+  tenureYears: number;
+  moratoriumMonths: number;
+}
+
+export interface MultiYearProjectionResult {
+  assumptions: MultiYearFinancialAssumptions;
+  years: MultiYearProjectionYear[];
+  averageDscr: number;
+  minDscr: number;
+  totalFiveYearNetCashFlow: number;
+  totalInterestPaid: number;
+  isBankable: boolean;
+  bankabilitySummary: string;
+  bankabilitySummaryTe: string;
+}
+
+export interface MultiYearProjectionParams {
+  marginCapital?: number;
+  projectCost?: number;
+  loanAmount?: number;
+  baseMonthlyRevenue?: number;
+  baseMonthlyExpense?: number;
+  annualRevenueGrowthPct?: number; // default: 8.0%
+  annualExpenseGrowthPct?: number; // default: 5.0%
+  assetDepreciationRatePct?: number; // default: 10.0%
+  interestRateAnnual?: number;
+  tenureYears?: number;
+  moratoriumMonths?: number;
+  projectionYears?: number; // default: 5
+}
+
+/**
+ * Deterministic Multi-Year Financial Projection Engine (Default: 5 Years).
+ * Strictly computes annual P&L, reducing-balance debt service, depreciation,
+ * cash-flow cumulative runway, and DSCR trajectory.
+ */
+export function calculateMultiYearProjection(
+  params: MultiYearProjectionParams = {}
+): MultiYearProjectionResult {
+  const marginCapital = Math.max(1000, params.marginCapital ?? 100000);
+  const projectCost = params.projectCost ?? Math.round(marginCapital / 0.10);
+  const loanAmount = params.loanAmount ?? Math.round(projectCost * 0.90);
+
+  // Scheme or custom loan terms
+  const scheme = projectCost <= 140000 ? SCHEMES['micro-finance'] : SCHEMES['term-loan'];
+  const interestRateAnnual = params.interestRateAnnual ?? scheme.interestRateAnnual;
+  const tenureYears = params.tenureYears ?? scheme.tenureYears;
+  const moratoriumMonths = params.moratoriumMonths ?? scheme.moratoriumMonths;
+  const projectionYears = Math.max(1, Math.min(10, params.projectionYears ?? 5));
+
+  const annualRevenueGrowthPct = params.annualRevenueGrowthPct ?? 8.0;
+  const annualExpenseGrowthPct = params.annualExpenseGrowthPct ?? 5.0;
+  const assetDepreciationRatePct = params.assetDepreciationRatePct ?? 10.0;
+
+  // Default monthly revenue/expense estimates if not provided
+  // Baseline: standard rural micro-enterprise operating turnover ~30-40% of project cost monthly
+  const defaultMonthlyRev = Math.max(25000, Math.round(projectCost * 0.12));
+  const defaultMonthlyExp = Math.max(15000, Math.round(defaultMonthlyRev * 0.65));
+
+  const baseMonthlyRevenue = params.baseMonthlyRevenue ?? defaultMonthlyRev;
+  const baseMonthlyExpense = params.baseMonthlyExpense ?? defaultMonthlyExp;
+
+  // Calculate detailed quarterly amortization schedule to map into years
+  const annualRate = interestRateAnnual / 100;
+  const quarterlyRate = annualRate / 4;
+  const totalQuarters = tenureYears * 4;
+  const moratoriumQuarters = Math.round(moratoriumMonths / 3);
+  const repaymentQuarters = Math.max(1, totalQuarters - moratoriumQuarters);
+
+  const p = loanAmount;
+  const r = quarterlyRate;
+  const n = repaymentQuarters;
+
+  let quarterlyEmi = 0;
+  if (r > 0 && n > 0) {
+    const compoundFactor = Math.pow(1 + r, n);
+    quarterlyEmi = Math.round((p * r * compoundFactor) / (compoundFactor - 1));
+  } else {
+    quarterlyEmi = Math.round(p / n);
+  }
+
+  // Generate all quarters of amortization
+  interface QRecord {
+    interest: number;
+    principal: number;
+    payment: number;
+    remaining: number;
+  }
+  const quarterRecords: QRecord[] = [];
+  let currBal = loanAmount;
+
+  for (let q = 1; q <= Math.max(totalQuarters, projectionYears * 4); q++) {
+    if (q > totalQuarters || currBal <= 0) {
+      quarterRecords.push({ interest: 0, principal: 0, payment: 0, remaining: 0 });
+      continue;
+    }
+    const isMoratorium = q <= moratoriumQuarters;
+    const interest = Math.round(currBal * r);
+    if (isMoratorium) {
+      quarterRecords.push({ interest, principal: 0, payment: interest, remaining: currBal });
+    } else {
+      const isLast = q === totalQuarters;
+      let principalPaid = isLast ? currBal : Math.round(quarterlyEmi - interest);
+      if (principalPaid > currBal) principalPaid = currBal;
+      const payment = isLast ? principalPaid + interest : quarterlyEmi;
+      currBal = Math.max(0, currBal - principalPaid);
+      quarterRecords.push({ interest, principal: principalPaid, payment, remaining: currBal });
+    }
+  }
+
+  // Yearly projection simulation
+  const years: MultiYearProjectionYear[] = [];
+  let cumulativeCash = marginCapital * 0.15; // 15% opening contingency buffer
+  let totalInterestPaidAllYears = 0;
+  let dscrSum = 0;
+  let minDscr = 999;
+
+  let currentAnnualRev = baseMonthlyRevenue * 12;
+  let currentAnnualExp = baseMonthlyExpense * 12;
+  let plantAssetBase = Math.round(projectCost * 0.70); // 70% capex equipment
+
+  for (let y = 1; y <= projectionYears; y++) {
+    // Apply compounding annual growth from Year 2 onwards
+    if (y > 1) {
+      currentAnnualRev = Math.round(currentAnnualRev * (1 + annualRevenueGrowthPct / 100));
+      currentAnnualExp = Math.round(currentAnnualExp * (1 + annualExpenseGrowthPct / 100));
+    }
+
+    // In Year 1, revenue is adjusted for 1-month gestation/setup ramp-up (11 active operating months)
+    const effectiveYearRev = y === 1 ? Math.round(currentAnnualRev * (11 / 12)) : currentAnnualRev;
+    const effectiveYearExp = y === 1 ? Math.round(currentAnnualExp * (11.5 / 12)) : currentAnnualExp;
+
+    const netOperatingIncome = effectiveYearRev - effectiveYearExp;
+
+    // Straight-line asset depreciation
+    const depreciation = Math.round(plantAssetBase * (assetDepreciationRatePct / 100));
+    plantAssetBase = Math.max(0, plantAssetBase - depreciation);
+
+    // Sum 4 quarters for year y
+    const startQ = (y - 1) * 4;
+    let yearInterest = 0;
+    let yearPrincipal = 0;
+    let yearPayment = 0;
+    let closingBal = 0;
+
+    for (let i = 0; i < 4; i++) {
+      const qRec = quarterRecords[startQ + i] || { interest: 0, principal: 0, payment: 0, remaining: 0 };
+      yearInterest += qRec.interest;
+      yearPrincipal += qRec.principal;
+      yearPayment += qRec.payment;
+      closingBal = qRec.remaining;
+    }
+
+    totalInterestPaidAllYears += yearInterest;
+    const netCashFlow = netOperatingIncome - yearPayment;
+    cumulativeCash += netCashFlow;
+
+    // DSCR = Net Operating Income / Total Annual Debt Service
+    let dscr = 2.5;
+    if (yearPayment > 0) {
+      dscr = Math.round((netOperatingIncome / yearPayment) * 100) / 100;
+    } else {
+      dscr = 3.5; // Debt free in later years
+    }
+
+    if (dscr < minDscr) minDscr = dscr;
+    dscrSum += dscr;
+
+    years.push({
+      year: y,
+      grossRevenue: effectiveYearRev,
+      operatingExpenses: effectiveYearExp,
+      netOperatingIncome,
+      depreciation,
+      interestPaid: yearInterest,
+      principalRepaid: yearPrincipal,
+      totalDebtService: yearPayment,
+      netCashFlow,
+      closingCashBalance: cumulativeCash,
+      closingLoanBalance: closingBal,
+      dscr,
+      isDscrHealthy: dscr >= 1.25,
+    });
+  }
+
+  const averageDscr = Math.round((dscrSum / projectionYears) * 100) / 100;
+  const isBankable = minDscr >= 1.25 && cumulativeCash > 0;
+
+  const bankabilitySummary = isBankable
+    ? `Strong multi-year debt service sustainability. Average DSCR of ${averageDscr.toFixed(2)}x remains above the RBI/NABARD 1.25x statutory benchmark across all ${projectionYears} years.`
+    : `Elevated debt burden. Minimum DSCR drops to ${minDscr.toFixed(2)}x, falling below the 1.25x safe threshold. Consider reducing debt proportion or extending tenure.`;
+
+  const bankabilitySummaryTe = isBankable
+    ? `బలమైన బహుళ-వార్షిక రుణ చెల్లింపు సామర్థ్యం. సగటు DSCR ${averageDscr.toFixed(2)}x గా ఉండి, బ్యాంకింగ్ బెంచ్‌మార్క్ 1.25x కంటే సురక్షితంగా ఉంది.`
+    : `రుణ భారం ఎక్కువగా ఉంది. కనిష్ట DSCR ${minDscr.toFixed(2)}x గా నమోదైంది. రుణ భారాన్ని తగ్గించుకోవడం మంచిది.`;
+
+  return {
+    assumptions: {
+      projectionYears,
+      baseMonthlyRevenue,
+      baseMonthlyExpense,
+      annualRevenueGrowthPct,
+      annualExpenseGrowthPct,
+      assetDepreciationRatePct,
+      projectCost,
+      marginCapital,
+      loanAmount,
+      interestRateAnnual,
+      tenureYears,
+      moratoriumMonths,
+    },
+    years,
+    averageDscr,
+    minDscr,
+    totalFiveYearNetCashFlow: cumulativeCash,
+    totalInterestPaid: totalInterestPaidAllYears,
+    isBankable,
+    bankabilitySummary,
+    bankabilitySummaryTe,
+  };
+}
+

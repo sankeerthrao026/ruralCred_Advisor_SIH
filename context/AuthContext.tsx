@@ -25,6 +25,7 @@ export interface AuthContextType {
   user: AuthUser | null;
   session: Session | null;
   loading: boolean;
+  isInitialized: boolean;
   error: string | null;
   isConfigured: boolean;
   isDemo: boolean;
@@ -92,10 +93,11 @@ function mapSupabaseUser(user: User): AuthUser {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Synchronous initialization from localStorage ensures ZERO loading delay on startup
-  const [user, setUser] = useState<AuthUser | null>(getInitialUser);
+  // Start with null and isInitialized: false for SSR / client-hydration consistency
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const isDemo = Boolean(
@@ -105,9 +107,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (typeof window !== 'undefined' && Boolean(localStorage.getItem(DEMO_USER_ID_KEY)))
   );
 
-  // Background non-blocking session check for optional Supabase
+  // Load initial session on client mount and background check for optional Supabase
   useEffect(() => {
     let active = true;
+
+    // 1. Initialize user from localStorage / active demo session
+    const initialUser = getInitialUser();
+    if (initialUser && active) {
+      setUser(initialUser);
+    }
+    if (active) {
+      setIsInitialized(true);
+    }
 
     async function checkBackgroundSupabaseSession() {
       // If user is already in demo mode, do not override with Supabase
@@ -383,6 +394,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         loading,
+        isInitialized,
         error,
         isConfigured: isSupabaseConfigured,
         isDemo,

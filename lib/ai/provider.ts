@@ -112,15 +112,16 @@ export interface BusinessPlanOutput {
 }
 
 /**
- * Unified Google Gemini LLM caller.
- * Never uses static mock responses when GEMINI_API_KEY is configured.
- * Logs explicit diagnostic warnings if the key is missing or the call fails.
+ * Unified LLM caller supporting NVIDIA NIM (Nemotron-3) and Google Gemini.
+ * Never uses static mock responses when an API key is configured.
+ * Logs explicit diagnostic warnings if keys are missing or calls fail.
  */
 async function callLlmService(
   system: string,
   userPrompt: string
 ): Promise<{ text: string; provider: string }> {
-  if (process.env.GEMINI_API_KEY) {
+  const hasLlm = Boolean(process.env.NVIDIA_API_KEY || process.env.GEMINI_API_KEY);
+  if (hasLlm) {
     try {
       const res = await callGeminiApi({
         systemInstruction: system,
@@ -129,18 +130,21 @@ async function callLlmService(
       });
 
       if (res.success && res.text) {
-        return { text: res.text, provider: `Google Gemini (${res.model})` };
+        const providerName = res.model.includes('nvidia') || res.model.includes('nemotron')
+          ? `NVIDIA NIM (${res.model})`
+          : `Google Gemini (${res.model})`;
+        return { text: res.text, provider: providerName };
       }
 
       console.warn(
-        `[AI Pipeline Warning] Gemini API call returned no output (${res.error}). Falling back to grounded local dataset.`
+        `[AI Pipeline Warning] LLM API call returned no output (${res.error}). Falling back to grounded local dataset.`
       );
     } catch (err: any) {
-      console.warn('[AI Pipeline Warning] Gemini API call threw an error. Falling back:', err?.message);
+      console.warn('[AI Pipeline Warning] LLM API call threw an error. Falling back:', err?.message);
     }
   } else {
     console.warn(
-      '[AI Pipeline Warning] GEMINI_API_KEY environment variable is not configured. Using grounded local fallback dataset.'
+      '[AI Pipeline Warning] Neither NVIDIA_API_KEY nor GEMINI_API_KEY is configured. Using grounded local fallback dataset.'
     );
   }
 
@@ -234,14 +238,29 @@ function synthesizeGroundedLocalAdvisor(
 
   // 1. Location Selection / Cluster Recommendations
   if (intent === 'location_selection') {
+    const rawHubs: string[] = Array.isArray(dData.commercialHubs) ? dData.commercialHubs : [];
+    const hubsEn = rawHubs.map((h: string) => cleanForEnglish(h)).filter(Boolean);
+    const hubsTe = rawHubs.map((h: string) => cleanForTelugu(h)).filter(Boolean);
+
+    const hubsListEn = hubsEn.length > 0
+      ? hubsEn.map((h: string) => `• ${h} (Commercial & Mandi Hub)`).join('\n')
+      : `• ${distName} Central Commercial Mandi Corridor`;
+
+    const hubsListTe = hubsTe.length > 0
+      ? hubsTe.map((h: string) => `• ${h} (వాణిజ్య & మండి కేంద్రం)`).join('\n')
+      : `• ${distName} ప్రధాన వాణిజ్య మండి కారిడార్`;
+
     if (domain === 'handloom_weaving') {
+      const isWarangalCluster = distName.toLowerCase().includes('warangal') || distName.toLowerCase().includes('వరంగల్');
       if (isTe) {
         replyText =
           `${distName} లో చేనేత దుకాణం (Handloom Shop) ప్రారంభించడానికి అనువైన స్థలాలు మరియు మార్గదర్శకాలు:\n\n` +
-          `1. ${distName} లోని ప్రధాన క్లస్టర్లు:\n` +
-          `• పెంబర్తి & జనగామ కారిడార్: నేత కార్మికులు, మాస్టర్ వీవర్స్ మరియు నూలు డిపోలు ఎక్కువగా ఉండే ప్రసిద్ధ చేనేత ప్రాంతాలు.\n` +
-          `• హనుమకొండ (చౌరస్తా / సుబేదారి) & పరకాల: వివాహాలు మరియు పండుగల షాపింగ్ కోసం అధిక సంఖ్యలో కస్టమర్లు వచ్చే ప్రధాన వాణిజ్య కేంద్రాలు.\n` +
-          `• పర్యాటక & దేవాలయ మార్గాలు (వేయి స్తంభాల గుడి / భద్రకాళి పరిసరాలు): పర్యాటకులు నేరుగా నాణ్యమైన చేనేత వస్త్రాలు, చీరలు కొనుగోలు చేయడానికి అనుకూలం.\n\n` +
+          `1. ${distName} పరిధిలో పరిశీలించదగిన సంభావ్య వాణిజ్య ప్రాంతాలు:\n` +
+          (isWarangalCluster
+            ? `• పెంబర్తి & జనగామ కారిడార్: నేత కార్మికులు, మాస్టర్ వీవర్స్ మరియు నూలు డిపోలు ఎక్కువగా ఉండే ప్రసిద్ధ చేనేత ప్రాంతాలు.\n` +
+              `• హనుమకొండ (చౌరస్తా / సుబేదారి) & పరకాల: వివాహాలు మరియు పండుగల షాపింగ్ కోసం అధిక సంఖ్యలో కస్టమర్లు వచ్చే ప్రధాన వాణిజ్య కేంద్రాలు.\n` +
+              `• పర్యాటక & దేవాలయ మార్గాలు (వేయి స్తంభాల గుడి / భద్రకాళి పరిసరాలు): పర్యాటకులు నేరుగా నాణ్యమైన చేనేత వస్త్రాలు కొనుగోలు చేయడానికి అనుకూలం.\n\n`
+            : `${hubsListTe}\n\n`) +
           `2. స్థల ఎంపికకు 4 కీలక అంశాలు:\n` +
           `• ముడిసరుకు లభ్యత: నూలు డిపోలకు దగ్గరగా ఉండటం వల్ల రవాణా ఖర్చు 8-12% ఆదా అవుతుంది.\n` +
           `• కస్టమర్ రద్దీ: బట్టల దుకాణాలు మరియు నగల షాపులు ఉన్న ప్రధాన మార్కెట్ లైన్‌లో గ్రౌండ్ ఫ్లోర్ ఎంచుకోండి.\n` +
@@ -250,10 +269,12 @@ function synthesizeGroundedLocalAdvisor(
       } else {
         replyText =
           `Strategic location recommendations for establishing a Handloom & Weaving shop in ${distName}:\n\n` +
-          `1. High-Potential Clusters in ${distName}:\n` +
-          `• Pembarti & Jangaon belt: Established craft and artisan corridors with direct access to skilled master weavers and raw yarn depots.\n` +
-          `• Hanamkonda (Subedari / Chowrasta commercial core) & Parkal: Major retail trading hubs with high footfall for festive and wedding saree shopping.\n` +
-          `• Temple & Heritage Tourist Routes (e.g., Thousand Pillar / Bhadrakali access roads): Excellent for high-margin direct-to-consumer handloom silk and cotton sales.\n\n` +
+          `1. Potential Areas & Commercial Hubs to Evaluate in ${distName}:\n` +
+          (isWarangalCluster
+            ? `• Pembarti & Jangaon belt: Established craft and artisan corridors with direct access to skilled master weavers and raw yarn depots.\n` +
+              `• Hanamkonda (Subedari / Chowrasta commercial core) & Parkal: Major retail trading hubs with high footfall for festive and wedding saree shopping.\n` +
+              `• Temple & Heritage Tourist Routes (e.g., Thousand Pillar / Bhadrakali access roads): Excellent for high-margin direct-to-consumer handloom sales.\n\n`
+            : `${hubsListEn}\n\n`) +
           `2. Four Critical Site Selection Criteria:\n` +
           `• Raw Material Logistics: Proximity to APCO/NHDC yarn collection centers saves 8-12% on transportation.\n` +
           `• Footfall & Visibility: Ground-floor shop facing main market thoroughfare near apparel/jewellery clusters.\n` +
@@ -263,44 +284,64 @@ function synthesizeGroundedLocalAdvisor(
     } else if (domain === 'retail_shop') {
       if (isTe) {
         replyText =
-          `${distName} లో కిరాణా / జనరల్ స్టోర్ కోసం అనువైన స్థలాలు:\n\n` +
-          `1. బస్టాండ్ జంక్షన్ & గ్రామ పంచాయతీ కేంద్రం: నిరంతర ప్రయాణికులు మరియు స్థానికుల రాకపోకలు ఉంటాయి.\n` +
-          `2. ప్రధాన నివాస కాలనీ ప్రవేశ ద్వారం: ఉదయం మరియు సాయంత్రం వేళల్లో పాల, కిరాణా కొనుగోళ్లకు అనుకూలం.\n` +
-          `3. స్థల ఎంపిక నియమం: ఇప్పటికే ఉన్న పెద్ద కిరాణా దుకాణానికి కనీసం 150 మీటర్ల దూరంలో షాపును ఏర్పాటు చేయండి.`;
+          `${distName} లో కిరాణా / జనరల్ స్టోర్ కోసం అనువైన స్థలాలు మరియు మార్గదర్శకాలు:\n\n` +
+          `1. ${distName} లోని సంభావ్య వాణిజ్య కేంద్రాలు:\n` +
+          `${hubsListTe}\n\n` +
+          `2. స్థల ఎంపిక మార్గదర్శకాలు:\n` +
+          `• బస్టాండ్ జంక్షన్ & గ్రామ పంచాయతీ కేంద్రం: నిరంతర ప్రయాణికులు మరియు స్థానికుల రాకపోకలు ఉంటాయి.\n` +
+          `• ప్రధాన నివాస కాలనీ ప్రవేశ ద్వారం: ఉదయం మరియు సాయంత్రం వేళల్లో పాల, కిరాణా కొనుగోళ్లకు అనుకూలం.\n` +
+          `• స్థల ఎంపిక నియమం: ఇప్పటికే ఉన్న పెద్ద కిరాణా దుకాణానికి కనీసం 150 మీటర్ల దూరంలో షాపును ఏర్పాటు చేయండి.`;
       } else {
         replyText =
           `Prime location strategy for a Kirana & General Store in ${distName}:\n\n` +
-          `1. Mandal Bus Stand Junction / Gram Panchayat Center: Highest daily pedestrian footfall and morning/evening commuters.\n` +
-          `2. Residential Colony Entrance / Main Village Thoroughfare: Steady recurring household purchases for daily provisions.\n` +
-          `3. Site Evaluation Rule: Ensure at least 150-200 meters separation from established wholesale general stores to protect pricing power.`;
+          `1. Potential Commercial Hubs to Evaluate in ${distName}:\n` +
+          `${hubsListEn}\n\n` +
+          `2. Site Evaluation Guidelines:\n` +
+          `• Mandal Bus Stand Junction / Gram Panchayat Center: Highest daily pedestrian footfall and morning/evening commuters.\n` +
+          `• Residential Colony Entrance / Main Village Thoroughfare: Steady recurring household purchases for daily provisions.\n` +
+          `• Site Evaluation Rule: Ensure at least 150-200 meters separation from established wholesale general stores to protect pricing power.`;
       }
     } else if (domain === 'dairy_farming') {
       if (isTe) {
         replyText =
-          `${distName} లో పాడి పరిశ్రమ ఏర్పాటుకు అనువైన స్థలం:\n\n` +
-          `1. డైరీ కోఆపరేటివ్ సొసైటీ లేదా బల్క్ మిల్క్ కూలర్ (BMC) మార్గానికి 2-3 కి.మీ పరిధిలో ఉండాలి.\n` +
-          `2. పచ్చిగడ్డి సాగుకు అనువైన నీటి వనరు మరియు సులభమైన రవాణా రోడ్డు ఉండాలి.\n` +
-          `3. గాలి, వెలుతురు ధారాళంగా వచ్చే ఎత్తైన ప్రదేశం షెడ్ నిర్మాణానికి అనుకూలం.`;
+          `${distName} లో పాడి పరిశ్రమ ఏర్పాటుకు అనువైన ప్రాంతాలు మరియు స్థల ఎంపిక మార్గదర్శకాలు:\n\n` +
+          `1. ${distName} లో పరిశీలించదగిన సంభావ్య వాణిజ్య ప్రాంతాలు / మండి కేంద్రాలు:\n` +
+          `${hubsListTe}\n\n` +
+          `2. పాడి పరిశ్రమ స్థల ఎంపికకు 4 కీలక అంశాలు:\n` +
+          `• పాల సేకరణ కేంద్రాల సామీప్యత: పాల నాణ్యత తగ్గకుండా, రవాణా ఖర్చు తగ్గడానికి బల్క్ మిల్క్ కూలర్ (BMC) లేదా కోఆపరేటివ్ పాల మార్గానికి 2-3 కి.మీ పరిధిలో ఉండాలి.\n` +
+          `• నీరు & పచ్చిగడ్డి లభ్యత: పచ్చిగడ్డి (సూపర్ నేపియర్/CO-4) సాగుకు మరియు పశువుల తాగునీటికి నిరంతర నీటి వనరు ఉండాలి.\n` +
+          `• రోడ్డు రవాణా & ఎత్తైన స్థలం: పాల వ్యాన్ల రాకపోకలకు వర్షాకాలంలోనూ అనుకూలమైన రోడ్డు; గాలి, వెలుతురు ధారాళంగా వచ్చే ఎత్తైన, నీరు నిలవని ప్రదేశం.\n` +
+          `• మార్కెట్ అనుసంధానం: స్థానిక హోటళ్ళు, టీ స్టాళ్ళు మరియు వినియోగదారులకు నేరుగా విక్రయించి అధిక లాభం పొందే అవకాశం.`;
       } else {
         replyText =
-          `Location criteria for setting up a Dairy Farm in ${distName}:\n\n` +
-          `1. Proximity to Bulk Milk Coolers (BMC) or cooperative milk route (within 2-3 km) to minimize spoilage and transport overhead.\n` +
-          `2. Reliable perennial water source for green fodder irrigation (Super Napier/Co-4) and cattle drinking.\n` +
-          `3. Elevated, well-drained terrain with east-west orientation for optimal shed ventilation.`;
+          `Potential areas and site selection guidance for Dairy Farming in ${distName}:\n\n` +
+          `1. Potential Areas & Commercial Hubs to Evaluate in ${distName}:\n` +
+          `${hubsListEn}\n\n` +
+          `2. Key Dairy-Farm Site Selection Criteria:\n` +
+          `• Proximity to Milk Collection: Within 2–3 km of Bulk Milk Coolers (BMC) or cooperative milk routes to minimize spoilage and transport overhead.\n` +
+          `• Reliable Water & Fodder: Perennial water source for green fodder cultivation (Super Napier/Co-4) and livestock drinking.\n` +
+          `• Road Connectivity & Terrain: All-weather motorable approach road for daily milk collection vehicles; elevated, well-drained terrain with east-west shed orientation for ventilation.\n` +
+          `• Market Linkage: Proximity to local consumer demand centers (sweet shops, tea stalls, hotels) for higher-margin direct sales alongside cooperative off-take.`;
       }
     } else {
       if (isTe) {
         replyText =
-          `${distName} లో ${catName} వ్యాపారానికి అనువైన స్థలం:\n\n` +
-          `1. మండల ప్రధాన కూడలి లేదా వాణిజ్య మార్కెట్ యార్డ్ పరిసరాలు.\n` +
-          `2. రవాణా సౌకర్యం, విద్యుత్ లభ్యత మరియు తక్కువ అద్దె ఉండే ప్రాంతాన్ని ఎంచుకోండి.\n` +
-          `3. కస్టమర్ రద్దీ మరియు సరుకు రవాణా రెండింటికీ అనుకూలంగా ఉండాలి.`;
+          `${distName} లో ${catName} వ్యాపారానికి అనువైన స్థలాలు మరియు మార్గదర్శకాలు:\n\n` +
+          `1. ${distName} లోని సంభావ్య వాణిజ్య కేంద్రాలు:\n` +
+          `${hubsListTe}\n\n` +
+          `2. స్థల ఎంపిక అంశాలు:\n` +
+          `• మండల ప్రధాన కూడలి లేదా వాణిజ్య మార్కెట్ యార్డ్ పరిసరాలు.\n` +
+          `• రవాణా సౌకర్యం, విద్యుత్ లభ్యత మరియు తక్కువ అద్దె ఉండే ప్రాంతాన్ని ఎంచుకోండి.\n` +
+          `• కస్టమర్ రద్దీ మరియు సరుకు రవాణా రెండింటికీ అనుకూలంగా ఉండాలి.`;
       } else {
         replyText =
           `Location selection strategy for ${catName} in ${distName}:\n\n` +
-          `1. Mandal Commercial Center / Market Yard corridor with high consumer density.\n` +
-          `2. Assure multi-modal transport accessibility, reliable utility connections, and reasonable shop rentals.\n` +
-          `3. Prioritize customer visibility while keeping fixed overhead under 10% of gross margin.`;
+          `1. Potential Commercial Hubs to Evaluate in ${distName}:\n` +
+          `${hubsListEn}\n\n` +
+          `2. Site Evaluation Factors:\n` +
+          `• Mandal Commercial Center / Market Yard corridor with high consumer density.\n` +
+          `• Assure multi-modal transport accessibility, reliable utility connections, and reasonable shop rentals.\n` +
+          `• Prioritize customer visibility while keeping fixed overhead under 10% of gross margin.`;
       }
     }
   }
@@ -773,12 +814,16 @@ STRICT RULES:
 - Mandatory Directive: State the calculated answer (${calcData.recommendedUnits} ${calcData.unitNameEn}) immediately and explain the step-by-step numbers clearly.`;
   }
 
+  const locationInstruction = intentInfo.intent === 'location_selection'
+    ? `\n\nLOCATION SELECTION MANDATE: The user is asking for suitable areas/locations within ${input.location}. You MUST recommend specific commercial hubs, mandals, or towns identified in the Grounding Context (e.g. from Mandi Hubs / Commercial Centers: ${(grounded.districtData.commercialHubs || []).join(', ')}) and explain why each area is advantageous for ${activeCategory} (e.g., fodder availability, water resources, milk chilling centers, transport/market access). Do NOT provide only generic criteria; name specific local locations from the district context.`
+    : '';
+
   const userPrompt = `${historyBlock}BUSINESS PROFILE:
 - Location: ${input.location}
 - Enterprise Category: ${activeCategory} (Domain: ${domain})
 - Promoter Margin Capital: ₹${input.marginCapital.toLocaleString('en-IN')}
 
-${input.userQuery ? `CURRENT USER QUESTION:\n${input.userQuery}${calcSummary}\n\nINSTRUCTION: In the 'reply' field, answer the user's question directly for ${activeCategory}. Do not mention unrelated domains.` : 'CURRENT INQUIRY:\nProvide an initial comprehensive business viability assessment for starting or operating this enterprise.'}
+${input.userQuery ? `CURRENT USER QUESTION:\n${input.userQuery}${calcSummary}${locationInstruction}\n\nINSTRUCTION: In the 'reply' field, answer the user's question directly for ${activeCategory}. Do not mention unrelated domains.` : 'CURRENT INQUIRY:\nProvide an initial comprehensive business viability assessment for starting or operating this enterprise.'}
 
 GROUNDING CONTEXT (Local Market Data, Mandi Price Trends & District Demographics):
 ${grounded.summaryContext}
@@ -802,7 +847,16 @@ Return pure JSON with keys:
     try {
       const jsonMatch = response.text.match(/```(?:json)?([\s\S]*?)```/) || [null, response.text];
       const rawJson = (jsonMatch[1] || response.text).trim();
-      const parsed = JSON.parse(rawJson);
+      let parsed: any;
+      try {
+        parsed = JSON.parse(rawJson);
+      } catch (parseErr) {
+        // Attempt sanitize unescaped newlines/tabs in JSON strings or trailing commas
+        const sanitized = rawJson
+          .replace(/[\u0000-\u001F]+/g, (match) => (match === '\n' || match === '\r' || match === '\t') ? ' ' : '')
+          .replace(/,\s*([\]}])/g, '$1');
+        parsed = JSON.parse(sanitized);
+      }
 
       // Verify anti-contamination on Gemini response
       if (!hasCrossDomainContamination(parsed.reply || '', domain, isTe)) {

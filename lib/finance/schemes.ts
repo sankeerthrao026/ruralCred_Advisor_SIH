@@ -20,6 +20,7 @@ export interface SchemeEligibilityInput {
   locationType: 'rural' | 'urban';
   isNewEnterprise?: boolean;
   isArtisanTrade?: boolean;
+  projectCost?: number;
 }
 
 export interface SchemeCalculationResult {
@@ -128,7 +129,6 @@ export function isArtisanCategory(categoryStr: string): boolean {
 
 // 1. MUDRA Scheme
 export function calculateMudra(inp: SchemeEligibilityInput): SchemeCalculationResult {
-  const amount = Number(inp.loanAmount) || 50000;
   let tierId = 'mudra-kishore';
   let tierName = 'MUDRA (Kishore Tier)';
   let tierNameTe = 'పీఎం ముద్రా (కిషోర్ - ₹50,000 నుండి ₹5 లక్షలు)';
@@ -141,36 +141,83 @@ export function calculateMudra(inp: SchemeEligibilityInput): SchemeCalculationRe
   let tierDesc = 'For expanding micro-enterprises purchasing inventory, equipment, or business stock up to ₹5 Lakhs.';
   let tierDescTe = 'వ్యాపార విస్తరణ మరియు ముడిసరుకు కొనుగోలుకు ₹5 లక్షల వరకు లభించే పూచీకత్తు రహిత రుణం.';
 
-  if (amount <= 50000) {
-    tierId = 'mudra-shishu';
-    tierName = 'MUDRA (Shishu Tier)';
-    tierNameTe = 'పీఎం ముద్రా (శిశు - ₹50,000 వరకు)';
-    maxLoan = 50000;
-    marginPercent = 0;
-    interestRate = 8.5;
-    tenureYears = 3;
-    tenureMonths = 36;
-    moratoriumMonths = 3;
-    tierDesc = 'For micro-starters needing small working capital injections with 0% margin money and zero processing fees.';
-    tierDescTe = 'చిన్న వ్యాపారాల ప్రారంభానికి ఎటువంటి సొంత వాటా లేకుండా సున్నా ప్రాసెసింగ్ ఫీజుతో లభించే రుణం.';
-  } else if (amount > 500000) {
-    tierId = 'mudra-tarun';
-    tierName = 'MUDRA (Tarun Tier)';
-    tierNameTe = 'పీఎం ముద్రా (తరుణ్ - ₹5 లక్షల నుండి ₹10 లక్షలు)';
-    maxLoan = 1000000;
-    marginPercent = 15;
-    interestRate = inp.gender.toLowerCase() === 'female' ? 10.75 : 11.0;
-    tenureYears = 5;
-    tenureMonths = 60;
-    moratoriumMonths = 6;
-    tierDesc = 'For established micro-enterprises scaling operations, setting up production units, or upgrading tech.';
-    tierDescTe = 'స్థిరపడిన వ్యాపారాల విస్తరణకు ₹10 లక్షల వరకు లభించే ఉన్నత స్థాయి ముద్రా రుణం.';
-  }
+  let amount = Number(inp.loanAmount) || 50000;
+  let sanctioned: number;
+  let projectCost: number;
+  let promoterContrib: number;
 
-  const sanctioned = Math.min(amount, maxLoan);
-  const loanShare = (100 - marginPercent) / 100;
-  const projectCost = marginPercent === 0 ? sanctioned : Math.round(sanctioned / loanShare);
-  const promoterContrib = projectCost - sanctioned;
+  if (inp.projectCost && inp.projectCost > 0) {
+    const pCost = inp.projectCost;
+    if (pCost <= 50000) {
+      tierId = 'mudra-shishu';
+      tierName = 'MUDRA (Shishu Tier)';
+      tierNameTe = 'పీఎం ముద్రా (శిశు - ₹50,000 వరకు)';
+      maxLoan = 50000;
+      marginPercent = 0;
+      interestRate = 8.5;
+      tenureYears = 3;
+      tenureMonths = 36;
+      moratoriumMonths = 3;
+      tierDesc = 'For micro-starters needing small working capital injections with 0% margin money and zero processing fees.';
+      tierDescTe = 'చిన్న వ్యాపారాల ప్రారంభానికి ఎటువంటి సొంత వాటా లేకుండా సున్నా ప్రాసెసింగ్ ఫీజుతో లభించే రుణం.';
+      projectCost = pCost;
+      sanctioned = Math.min(projectCost, maxLoan);
+      promoterContrib = projectCost - sanctioned;
+    } else if (pCost <= 555555) {
+      projectCost = pCost;
+      promoterContrib = Math.round(projectCost * (marginPercent / 100));
+      sanctioned = Math.min(projectCost - promoterContrib, maxLoan);
+      promoterContrib = projectCost - sanctioned;
+    } else {
+      tierId = 'mudra-tarun';
+      tierName = 'MUDRA (Tarun Tier)';
+      tierNameTe = 'పీఎం ముద్రా (తరుణ్ - ₹5 లక్షల నుండి ₹10 లక్షలు)';
+      maxLoan = 1000000;
+      marginPercent = 15;
+      interestRate = inp.gender.toLowerCase() === 'female' ? 10.75 : 11.0;
+      tenureYears = 5;
+      tenureMonths = 60;
+      moratoriumMonths = 6;
+      tierDesc = 'For established micro-enterprises scaling operations, setting up production units, or upgrading tech.';
+      tierDescTe = 'స్థిరపడిన వ్యాపారాల విస్తరణకు ₹10 లక్షల వరకు లభించే ఉన్నత స్థాయి ముద్రా రుణం.';
+      projectCost = pCost;
+      promoterContrib = Math.round(projectCost * (marginPercent / 100));
+      sanctioned = Math.min(projectCost - promoterContrib, maxLoan);
+      promoterContrib = projectCost - sanctioned;
+    }
+    amount = sanctioned;
+  } else {
+    if (amount <= 50000) {
+      tierId = 'mudra-shishu';
+      tierName = 'MUDRA (Shishu Tier)';
+      tierNameTe = 'పీఎం ముద్రా (శిశు - ₹50,000 వరకు)';
+      maxLoan = 50000;
+      marginPercent = 0;
+      interestRate = 8.5;
+      tenureYears = 3;
+      tenureMonths = 36;
+      moratoriumMonths = 3;
+      tierDesc = 'For micro-starters needing small working capital injections with 0% margin money and zero processing fees.';
+      tierDescTe = 'చిన్న వ్యాపారాల ప్రారంభానికి ఎటువంటి సొంత వాటా లేకుండా సున్నా ప్రాసెసింగ్ ఫీజుతో లభించే రుణం.';
+    } else if (amount > 500000) {
+      tierId = 'mudra-tarun';
+      tierName = 'MUDRA (Tarun Tier)';
+      tierNameTe = 'పీఎం ముద్రా (తరుణ్ - ₹5 లక్షల నుండి ₹10 లక్షలు)';
+      maxLoan = 1000000;
+      marginPercent = 15;
+      interestRate = inp.gender.toLowerCase() === 'female' ? 10.75 : 11.0;
+      tenureYears = 5;
+      tenureMonths = 60;
+      moratoriumMonths = 6;
+      tierDesc = 'For established micro-enterprises scaling operations, setting up production units, or upgrading tech.';
+      tierDescTe = 'స్థిరపడిన వ్యాపారాల విస్తరణకు ₹10 లక్షల వరకు లభించే ఉన్నత స్థాయి ముద్రా రుణం.';
+    }
+
+    sanctioned = Math.min(amount, maxLoan);
+    const loanShare = (100 - marginPercent) / 100;
+    projectCost = marginPercent === 0 ? sanctioned : Math.round(sanctioned / loanShare);
+    promoterContrib = projectCost - sanctioned;
+  }
 
   const emiData = calculateReducingEmi(sanctioned, interestRate, tenureMonths, moratoriumMonths);
 
@@ -213,14 +260,26 @@ export function calculateMudra(inp: SchemeEligibilityInput): SchemeCalculationRe
 
 // 2. PM Vishwakarma Scheme
 export function calculatePmVishwakarma(inp: SchemeEligibilityInput): SchemeCalculationResult {
-  const amount = Number(inp.loanAmount) || 100000;
   const isArtisan = inp.isArtisanTrade !== undefined ? inp.isArtisanTrade : isArtisanCategory(inp.category);
-
   const maxLoan = 300000;
-  const sanctioned = Math.min(amount, maxLoan);
   const marginPercent = 5;
-  const projectCost = Math.round(sanctioned / 0.95);
-  const promoterContrib = projectCost - sanctioned;
+
+  let amount = Number(inp.loanAmount) || 100000;
+  let sanctioned: number;
+  let projectCost: number;
+  let promoterContrib: number;
+
+  if (inp.projectCost && inp.projectCost > 0) {
+    projectCost = inp.projectCost;
+    promoterContrib = Math.round(projectCost * (marginPercent / 100));
+    sanctioned = Math.min(projectCost - promoterContrib, maxLoan);
+    promoterContrib = projectCost - sanctioned;
+    amount = sanctioned;
+  } else {
+    sanctioned = Math.min(amount, maxLoan);
+    projectCost = Math.round(sanctioned / 0.95);
+    promoterContrib = projectCost - sanctioned;
+  }
 
   const tenureMonths = sanctioned <= 100000 ? 18 : 30;
   const tenureYears = tenureMonths / 12;
@@ -273,17 +332,31 @@ export function calculatePmVishwakarma(inp: SchemeEligibilityInput): SchemeCalcu
 
 // 3. Stand-Up India Scheme
 export function calculateStandUpIndia(inp: SchemeEligibilityInput): SchemeCalculationResult {
-  const amount = Number(inp.loanAmount) || 1000000;
   const isWoman = ['female', 'woman', 'f'].includes(inp.gender.toLowerCase());
   const isScSt = ['SC', 'ST'].includes(inp.socialCategory.toUpperCase());
   const isEligible = isWoman || isScSt;
 
   const maxLoan = 10000000;
   const minLoan = 1000000;
-  const sanctioned = Math.max(minLoan, Math.min(amount, maxLoan));
   const marginPercent = 15;
-  const projectCost = Math.round(sanctioned / 0.85);
-  const promoterContrib = projectCost - sanctioned;
+
+  let amount = Number(inp.loanAmount) || 1000000;
+  let sanctioned: number;
+  let projectCost: number;
+  let promoterContrib: number;
+
+  if (inp.projectCost && inp.projectCost > 0) {
+    projectCost = inp.projectCost;
+    promoterContrib = Math.round(projectCost * (marginPercent / 100));
+    const calculatedLoan = projectCost - promoterContrib;
+    sanctioned = Math.max(minLoan, Math.min(calculatedLoan, maxLoan));
+    promoterContrib = projectCost - sanctioned;
+    amount = sanctioned;
+  } else {
+    sanctioned = Math.max(minLoan, Math.min(amount, maxLoan));
+    projectCost = Math.round(sanctioned / 0.85);
+    promoterContrib = projectCost - sanctioned;
+  }
 
   const interestRate = 8.5;
   const tenureYears = 7;
@@ -334,7 +407,6 @@ export function calculateStandUpIndia(inp: SchemeEligibilityInput): SchemeCalcul
 
 // 4. PMEGP Scheme
 export function calculatePmegp(inp: SchemeEligibilityInput): SchemeCalculationResult {
-  const amount = Number(inp.loanAmount) || 500000;
   const isWoman = ['female', 'woman', 'f'].includes(inp.gender.toLowerCase());
   const isSpecialCategory = isWoman || ['SC', 'ST', 'OBC'].includes(inp.socialCategory.toUpperCase());
   const isRural = inp.locationType.toLowerCase() === 'rural';
@@ -350,10 +422,24 @@ export function calculatePmegp(inp: SchemeEligibilityInput): SchemeCalculationRe
   const loanSharePercent = 100 - promoterPercent - subsidyPercent;
   const maxLoan = maxProjectCost * (loanSharePercent / 100);
 
-  const sanctioned = Math.min(amount, maxLoan);
-  const projectCost = Math.round(sanctioned / (loanSharePercent / 100));
-  const subsidyAmount = Math.round(projectCost * (subsidyPercent / 100));
-  const promoterContrib = projectCost - sanctioned - subsidyAmount;
+  let amount = Number(inp.loanAmount) || 500000;
+  let sanctioned: number;
+  let projectCost: number;
+  let subsidyAmount: number;
+  let promoterContrib: number;
+
+  if (inp.projectCost && inp.projectCost > 0) {
+    projectCost = Math.min(inp.projectCost, maxProjectCost);
+    subsidyAmount = Math.round(projectCost * (subsidyPercent / 100));
+    promoterContrib = Math.round(projectCost * (promoterPercent / 100));
+    sanctioned = projectCost - promoterContrib - subsidyAmount;
+    amount = sanctioned;
+  } else {
+    sanctioned = Math.min(amount, maxLoan);
+    projectCost = Math.round(sanctioned / (loanSharePercent / 100));
+    subsidyAmount = Math.round(projectCost * (subsidyPercent / 100));
+    promoterContrib = projectCost - sanctioned - subsidyAmount;
+  }
 
   const interestRate = 9.0;
   const tenureYears = 5;
@@ -405,24 +491,39 @@ export function calculatePmegp(inp: SchemeEligibilityInput): SchemeCalculationRe
 
 // 5. NBCFDC Scheme
 export function calculateNbcfdc(inp: SchemeEligibilityInput): SchemeCalculationResult {
-  const amount = Number(inp.loanAmount) || 90000;
   const isObc = inp.socialCategory.toUpperCase() === 'OBC';
+  let amount = Number(inp.loanAmount) || 90000;
+  let isMicro: boolean;
+  let maxLoan: number;
+  let actualProjectCost: number;
+  let sanctioned: number;
+  let promoterContrib: number;
 
-  const projectCostCalc = Math.round(amount / 0.9);
-  const isMicro = projectCostCalc <= 140000;
+  if (inp.projectCost && inp.projectCost > 0) {
+    const projectCostCalc = inp.projectCost;
+    isMicro = projectCostCalc <= 140000;
+    maxLoan = isMicro ? 126000 : 4500000;
+    actualProjectCost = inp.projectCost;
+    promoterContrib = Math.round(actualProjectCost * 0.10);
+    sanctioned = Math.min(actualProjectCost - promoterContrib, maxLoan);
+    promoterContrib = actualProjectCost - sanctioned;
+    amount = sanctioned;
+  } else {
+    const projectCostCalc = Math.round(amount / 0.9);
+    isMicro = projectCostCalc <= 140000;
+    maxLoan = isMicro ? 126000 : 4500000;
+    sanctioned = Math.min(amount, maxLoan);
+    actualProjectCost = Math.round(sanctioned / 0.9);
+    promoterContrib = actualProjectCost - sanctioned;
+  }
 
   const schemeId = isMicro ? 'nbcfdc-micro' : 'nbcfdc-term';
   const schemeName = isMicro ? 'NBCFDC Micro Finance Scheme' : 'NBCFDC Term Loan Scheme';
   const schemeNameTe = isMicro ? 'ఎన్‌బీసీఎఫ్‌డీసీ సూక్ష్మ రుణ పథకం' : 'ఎన్‌బీసీఎఫ్‌డీసీ టర్మ్ లోన్ పథకం';
-  const maxLoan = isMicro ? 126000 : 4500000;
-  const sanctioned = Math.min(amount, maxLoan);
   const interestRate = isMicro ? 6.5 : 8.0;
   const tenureYears = isMicro ? 3 : 7;
   const tenureMonths = tenureYears * 12;
   const moratoriumMonths = isMicro ? 3 : 6;
-
-  const actualProjectCost = Math.round(sanctioned / 0.9);
-  const promoterContrib = actualProjectCost - sanctioned;
 
   const emiData = calculateReducingEmi(sanctioned, interestRate, tenureMonths, moratoriumMonths);
 
@@ -481,18 +582,19 @@ export function calculateAllEligibleSchemes(inp: SchemeEligibilityInput): Scheme
   const isObc = inp.socialCategory.toUpperCase() === 'OBC';
   const isArtisan = inp.isArtisanTrade !== undefined ? inp.isArtisanTrade : isArtisanCategory(inp.category);
 
+  const evalAmount = inp.loanAmount || (inp.projectCost ? inp.projectCost * 0.85 : 500000);
   let topId = 'mudra-kishore';
-  if (isArtisan && inp.loanAmount <= 300000) {
+  if (isArtisan && evalAmount <= 300000) {
     topId = 'pm-vishwakarma';
-  } else if ((isWoman || isScSt) && inp.loanAmount >= 1000000) {
+  } else if ((isWoman || isScSt) && (evalAmount >= 1000000 || (inp.projectCost && inp.projectCost >= 1000000))) {
     topId = 'stand-up-india';
-  } else if ((isWoman || isScSt || isObc) && inp.loanAmount > 140000 && inp.loanAmount < 1000000) {
+  } else if ((isWoman || isScSt || isObc) && evalAmount > 140000 && evalAmount < 1000000) {
     topId = 'pmegp';
-  } else if (isObc && inp.loanAmount <= 140000) {
+  } else if (isObc && evalAmount <= 140000) {
     topId = 'nbcfdc-micro';
-  } else if (inp.loanAmount <= 50000) {
+  } else if (evalAmount <= 50000) {
     topId = 'mudra-shishu';
-  } else if (inp.loanAmount > 500000) {
+  } else if (evalAmount > 500000) {
     topId = 'mudra-tarun';
   }
 

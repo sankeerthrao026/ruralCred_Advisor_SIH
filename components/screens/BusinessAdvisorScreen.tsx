@@ -40,7 +40,18 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  Download,
 } from 'lucide-react';
+import { FeasibilityScoreCard } from '@/components/feasibility/FeasibilityScoreCard';
+import { MissingInformationCard } from '@/components/checklist/MissingInformationCard';
+import { ScenarioSimulatorCard } from '@/components/simulator/ScenarioSimulatorCard';
+import { MultiYearProjectionTable } from '@/components/projections/MultiYearProjectionTable';
+import { LlmProviderStatusCard } from '@/components/ai/LlmProviderStatusCard';
+import { exportBusinessAnalysisToPdf, BusinessAnalysisReportData } from '@/lib/export/business-analysis-pdf';
+import { evaluateBusinessFeasibility } from '@/lib/finance/feasibility';
+import { runScenarioComparisonSuite } from '@/lib/finance/scenarios';
+import { calculateMultiYearProjection } from '@/lib/finance/engine';
+import { evaluateMissingInformation } from '@/lib/finance/checklist';
 
 export interface AdvisorMessage {
   id: string;
@@ -132,7 +143,7 @@ function formatTime(timestamp: number): string {
 }
 
 export function BusinessAdvisorScreen() {
-  const { profile, language, dictionary } = useApp();
+  const { profile, finance, language, dictionary, totalIncome, totalExpenses } = useApp();
   const t = dictionary.businessAdvisor;
   const isTe = language === 'te';
 
@@ -140,6 +151,10 @@ export function BusinessAdvisorScreen() {
   const [data, setData] = useState<BusinessAdvisorOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
+
+  // PDF Export State
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportPdfSuccess, setExportPdfSuccess] = useState(false);
 
   // Hyper-local RAG parameters
   const [selectedLocation, setSelectedLocation] = useState<string>(profile.location || 'Warangal');
@@ -153,6 +168,7 @@ export function BusinessAdvisorScreen() {
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [expandedTurns, setExpandedTurns] = useState<Record<string, boolean>>({});
+  const [telemetryTrigger, setTelemetryTrigger] = useState(0);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -228,6 +244,90 @@ export function BusinessAdvisorScreen() {
     ];
   };
 
+  // Generate and export Business Analysis PDF
+  const handleExportPdf = () => {
+    try {
+      setExportingPdf(true);
+
+      const marginVal = profile.marginCapital || finance.marginCapital || 100000;
+      const projectCostVal = finance.projectCost || 1000000;
+      const loanVal = finance.loanAmount || 900000;
+      const monthlyRev = totalIncome > 0 ? totalIncome : 120000;
+      const monthlyExp = totalExpenses > 0 ? totalExpenses : 70000;
+
+      // Deterministic feasibility assessment
+      const feasibility = evaluateBusinessFeasibility({
+        category: selectedCategory,
+        location: selectedLocation,
+        marginCapital: marginVal,
+        projectCost: projectCostVal,
+        loanAmount: loanVal,
+        monthlyRevenueEstimate: monthlyRev,
+        monthlyExpenseEstimate: monthlyExp,
+      });
+
+      // Deterministic scenario comparison suite
+      const scenarios = runScenarioComparisonSuite({
+        marginCapital: marginVal,
+        projectCost: projectCostVal,
+        loanAmount: loanVal,
+        baseMonthlyRevenue: monthlyRev,
+        baseMonthlyExpense: monthlyExp,
+        interestRateAnnual: 8.5,
+        tenureYears: 5,
+      });
+
+      // Deterministic 5-year projections
+      const multiYearProjections = calculateMultiYearProjection({
+        marginCapital: marginVal,
+        projectCost: projectCostVal,
+        loanAmount: loanVal,
+        baseMonthlyRevenue: monthlyRev,
+        baseMonthlyExpense: monthlyExp,
+        interestRateAnnual: 8.5,
+        tenureYears: 5,
+        moratoriumMonths: 6,
+      });
+
+      // Missing information checklist
+      const missingInformation = evaluateMissingInformation({
+        name: profile.name,
+        businessName: profile.businessName,
+        category: selectedCategory,
+        location: selectedLocation,
+        marginCapital: marginVal,
+        hasUdyamRegistration: profile.hasUdyamRegistration,
+      });
+
+      const exportData: BusinessAnalysisReportData = {
+        businessName: profile.businessName || 'Sharma Dairy Farm',
+        promoterName: profile.name || 'Anita Sharma',
+        category: selectedCategory,
+        location: selectedLocation,
+        projectCost: projectCostVal,
+        promoterMargin: marginVal,
+        loanAmount: loanVal,
+        advisorOutput: data,
+        season: selectedSeason,
+        feasibility,
+        scenarios,
+        multiYearProjections,
+        missingInformation,
+        language: isTe ? 'te' : 'en',
+        providerUsed: data?.providerUsed || 'Google Gemini 2.5 Flash / NVIDIA NIM',
+        sourcesUsed: data?.sourcesUsed,
+      };
+
+      exportBusinessAnalysisToPdf(exportData);
+      setExportPdfSuccess(true);
+      setTimeout(() => setExportPdfSuccess(false), 3000);
+    } catch (err: any) {
+      console.error('Failed to export Business Analysis PDF:', err);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   // Primary initial analysis
   const runAnalysis = async (
     loc = selectedLocation,
@@ -284,6 +384,7 @@ export function BusinessAdvisorScreen() {
       setError(err?.message || 'Error running advisory');
     } finally {
       setLoading(false);
+      setTelemetryTrigger((prev) => prev + 1);
     }
   };
 
@@ -355,6 +456,7 @@ export function BusinessAdvisorScreen() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsFollowUpLoading(false);
+      setTelemetryTrigger((prev) => prev + 1);
     }
   };
 
@@ -509,17 +611,45 @@ export function BusinessAdvisorScreen() {
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => runAnalysis(selectedLocation, selectedCategory, selectedSeason, true)}
-          disabled={loading || isFollowUpLoading}
-          className="flex items-center gap-1.5 shrink-0 bg-card font-semibold text-xs border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all cursor-pointer"
-        >
-          <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>{loading ? t.analyzingText : isTe ? 'కొత్త విశ్లేషణ' : 'New Analysis'}</span>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={exportingPdf || loading}
+            className="flex items-center gap-1.5 shrink-0 bg-card font-semibold text-xs border-emerald-500/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all cursor-pointer shadow-xs"
+          >
+            <Download className={`size-3.5 ${exportingPdf ? 'animate-bounce' : ''}`} />
+            <span>
+              {exportingPdf
+                ? isTe
+                  ? 'పిడిఎఫ్ రూపొందుతోంది...'
+                  : 'Generating PDF...'
+                : exportPdfSuccess
+                ? isTe
+                  ? 'డౌన్‌లోడ్ పూర్తయింది!'
+                  : 'Downloaded!'
+                : isTe
+                ? 'అడ్వైజరీ రిపోర్ట్ (PDF)'
+                : 'Download Advisory Report (PDF)'}
+            </span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runAnalysis(selectedLocation, selectedCategory, selectedSeason, true)}
+            disabled={loading || isFollowUpLoading}
+            className="flex items-center gap-1.5 shrink-0 bg-card font-semibold text-xs border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all cursor-pointer"
+          >
+            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? t.analyzingText : isTe ? 'కొత్త విశ్లేషణ' : 'New Analysis'}</span>
+          </Button>
+        </div>
       </div>
+
+      {/* LLM Provider Status, Quota Transparency & Fallback Telemetry Card */}
+      <LlmProviderStatusCard language={isTe ? 'te' : 'en'} refreshTrigger={telemetryTrigger} />
 
       {/* Hyper-Local District, Category & Seasonality Explorer */}
       <div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-xs flex flex-col gap-4">
@@ -1332,6 +1462,21 @@ export function BusinessAdvisorScreen() {
           </div>
         </div>
       )}
+
+      {/* PHASE 1 INTEGRATED SECTIONS: Structured Feasibility, Checklist, Scenario Simulator, Multi-Year Projections */}
+      <div className="flex flex-col gap-6 pt-4">
+        {/* 1. Structured Feasibility Matrix */}
+        <FeasibilityScoreCard />
+
+        {/* 2. Contextual Missing Information Checklist */}
+        <MissingInformationCard />
+
+        {/* 3. Interactive Scenario Simulator & Risk Recalculation */}
+        <ScenarioSimulatorCard />
+
+        {/* 4. 5-Year Multi-Year Financial Projections */}
+        <MultiYearProjectionTable />
+      </div>
     </div>
   );
 }

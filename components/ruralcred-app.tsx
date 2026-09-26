@@ -29,6 +29,8 @@ import {
   Award,
   Landmark,
   MapPin,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CustomCursor } from '@/components/ui/custom-cursor';
@@ -76,8 +78,8 @@ const navigationSections: NavSection[] = [
     heading: 'Advisors',
     headingTe: 'AI సలహాదారులు',
     items: [
-      { id: 'Finance Advisor', name: 'Financial Advisor', nameTe: 'ఆర్థిక సలహాదారు', icon: Calculator, badge: 'AI' },
-      { id: 'Business Advisor', name: 'Business Advisor', nameTe: 'వ్యాపార సలహాదారు', icon: Sparkles, badge: 'RAG' },
+      { id: 'Finance Advisor', name: 'Financial Advisor', nameTe: 'ఆర్థిక సలహాదారు', icon: Calculator },
+      { id: 'Business Advisor', name: 'Business Advisor', nameTe: 'వ్యాపార సలహాదారు', icon: Sparkles },
     ],
   },
   {
@@ -128,8 +130,8 @@ function Brand() {
         <span className="text-lg font-bold font-sora">R</span>
       </div>
       <div>
-        <p className="font-bold leading-none tracking-tight font-sora text-foreground">RuralCred</p>
-        <p className="mt-1 text-[10px] uppercase font-semibold tracking-[0.18em] text-muted-foreground">
+        <p className="font-bold leading-none tracking-tight font-sora text-slate-900 dark:text-slate-100">RuralCred</p>
+        <p className="mt-1 text-[10px] uppercase font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
           Advisor
         </p>
       </div>
@@ -170,7 +172,7 @@ function Sidebar({
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r bg-sidebar px-4 py-5 transition-transform duration-300 ease-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-[272px] h-screen flex-col border-r border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-[#12141C] dark:text-slate-100 px-4 py-5 transition-transform duration-300 ease-out lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -179,18 +181,18 @@ function Sidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden text-slate-700 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
             onClick={() => setOpen(false)}
             aria-label="Close navigation"
           >
-            <X />
+            <X className="size-5" />
           </Button>
         </div>
 
         <div className="mt-6 flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
           {navigationSections.map((section) => (
             <div key={section.heading}>
-              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/80">
+              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
                 {isTe ? section.headingTe : section.heading}
               </p>
               <div className="flex flex-col gap-0.5">
@@ -208,12 +210,12 @@ function Sidebar({
                       className={`group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all duration-150 cursor-pointer ${
                         isActive
                           ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100'
                       }`}
                     >
                       <Icon
                         className={`size-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
-                          isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'
+                          isActive ? 'text-primary-foreground' : 'text-slate-500 group-hover:text-slate-900 dark:text-slate-400 dark:group-hover:text-slate-100'
                         }`}
                       />
                       <span className="flex-1 truncate">{isTe ? item.nameTe : item.name}</span>
@@ -223,7 +225,7 @@ function Sidebar({
                           className={`rounded-md px-1.5 py-0.2 text-[9px] font-bold tracking-wider uppercase ${
                             isActive
                               ? 'bg-primary-foreground/20 text-primary-foreground'
-                              : 'bg-muted text-muted-foreground'
+                              : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
                           }`}
                         >
                           {item.badge}
@@ -244,7 +246,7 @@ function Sidebar({
         </div>
 
         {/* User Card & Sign Out at Bottom */}
-        <div className="border-t border-border pt-4 flex flex-col gap-2">
+        <div className="border-t border-slate-200 dark:border-white/10 pt-4 flex flex-col gap-2">
           <button
             onClick={() => {
               setActive('Settings');
@@ -253,7 +255,7 @@ function Sidebar({
             className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-150 cursor-pointer ${
               active === 'Settings'
                 ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100'
             }`}
           >
             <Settings className="size-4 shrink-0" />
@@ -265,16 +267,16 @@ function Sidebar({
               setActive('Business Profile');
               setOpen(false);
             }}
-            className="flex w-full items-center gap-3 rounded-xl bg-muted/40 p-2.5 text-left transition-all duration-150 hover:bg-muted hover:shadow-2xs cursor-pointer"
+            className="flex w-full items-center gap-3 rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 text-left transition-all duration-150 hover:bg-slate-100 hover:border-slate-300 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 cursor-pointer group"
           >
             <div className="grid size-8 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-2xs">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-foreground">{profile?.name || 'Anita Sharma'}</p>
-              <p className="truncate text-[11px] text-muted-foreground">{profile?.businessName || 'Rural Enterprise'}</p>
+              <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{profile?.name || 'Anita Sharma'}</p>
+              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{profile?.businessName || 'Rural Enterprise'}</p>
             </div>
-            <ChevronRight className="size-4 text-muted-foreground shrink-0 transition-transform duration-150 group-hover:translate-x-0.5" />
+            <ChevronRight className="size-4 text-slate-400 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300" />
           </button>
 
           {isDemo ? (
@@ -290,7 +292,7 @@ function Sidebar({
             <button
               type="button"
               onClick={() => signOut()}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-150 cursor-pointer active:scale-[0.98]"
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 dark:text-slate-400 dark:hover:text-rose-400 dark:hover:bg-rose-500/10 transition-all duration-150 cursor-pointer active:scale-[0.98]"
             >
               <LogOut className="size-3.5" />
               <span>{isTe ? 'లాగ్ అవుట్' : 'Sign Out'}</span>
@@ -436,6 +438,8 @@ function RuralCredAppInner() {
   const {
     language,
     setLanguage,
+    theme,
+    toggleTheme,
     profile,
     detectedRisks,
     dictionary,
@@ -465,8 +469,9 @@ function RuralCredAppInner() {
     <div className="min-h-screen bg-background text-foreground lg:flex">
       <Sidebar active={active} setActive={setActive} open={open} setOpen={setOpen} />
 
-      <main className="min-w-0 flex-1 flex flex-col">
+      <main className="min-w-0 flex-1 flex flex-col lg:pl-[272px] min-h-screen">
         {/* Header Bar */}
+
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/90 backdrop-blur-md px-5 sm:px-8 transition-colors">
           <div className="flex items-center gap-3">
             <Button
@@ -571,6 +576,25 @@ function RuralCredAppInner() {
                 </button>
               ))}
             </div>
+ 
+            {/* Theme Toggle (Dark ↔ Light) */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+              title={
+                theme === 'dark'
+                  ? (isTe ? 'లైట్ థీమ్‌కు మారండి' : 'Switch to Light Theme')
+                  : (isTe ? 'డార్క్ థీమ్‌కు మారండి' : 'Switch to Dark Theme')
+              }
+              className="flex items-center justify-center size-8 rounded-lg border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150 cursor-pointer active:scale-95 shadow-2xs"
+            >
+              {theme === 'dark' ? (
+                <Sun className="size-4 text-amber-400 hover:rotate-45 transition-transform duration-200" />
+              ) : (
+                <Moon className="size-4 text-indigo-600 hover:-rotate-12 transition-transform duration-200" />
+              )}
+            </button>
 
             {/* Notifications / Risk Alerts Icon */}
             <button
@@ -653,9 +677,26 @@ function RuralCredAppInner() {
   );
 }
 
+function AppLoadingShell() {
+  return (
+    <div className="min-h-screen bg-background flex flex-col justify-center items-center px-4">
+      <div className="flex flex-col items-center gap-4">
+        <div className="grid size-12 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-md animate-pulse">
+          <span className="text-2xl font-bold font-sora">R</span>
+        </div>
+        <div className="size-6 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    </div>
+  );
+}
+
 function RuralCredAppGate() {
-  const { user } = useAuth();
+  const { user, isInitialized } = useAuth();
   const { hasCompletedOnboarding, updateProfile } = useApp();
+
+  if (!isInitialized) {
+    return <AppLoadingShell />;
+  }
 
   return (
     <>

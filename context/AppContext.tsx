@@ -47,11 +47,15 @@ export interface UserProfile {
   onboardingCompleted?: boolean;
   gender?: string;
   socialCategory?: string;
+  hasUdyamRegistration?: boolean;
 }
 
 export interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
+  toggleTheme: () => void;
   inputMode: 'text' | 'voice';
   setInputMode: (mode: 'text' | 'voice') => void;
   profile: UserProfile;
@@ -100,8 +104,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const userId = user?.id || 'demo-user';
 
   const [language, setLanguage] = useState<Language>('en');
+  const [theme, setThemeState] = useState<'light' | 'dark'>('dark');
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
   const [syncStatus, setSyncStatus] = useState<'synced' | 'local_cache' | 'syncing'>('synced');
+
+  // Load and apply theme on mount (default to dark)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedTheme = localStorage.getItem('ruralcred-theme');
+        if (storedTheme === 'light' || storedTheme === 'dark') {
+          setThemeState(storedTheme);
+          document.documentElement.classList.toggle('dark', storedTheme === 'dark');
+          document.documentElement.classList.toggle('light', storedTheme === 'light');
+        } else {
+          setThemeState('dark');
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+        }
+      } catch {}
+    }
+  }, []);
+
+  const setTheme = useCallback((newTheme: 'light' | 'dark') => {
+    setThemeState(newTheme);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('ruralcred-theme', newTheme);
+        document.documentElement.classList.toggle('dark', newTheme === 'dark');
+        document.documentElement.classList.toggle('light', newTheme === 'light');
+      } catch (e) {
+        console.warn('Failed to save theme preference:', e);
+      }
+    }
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [theme, setTheme]);
 
   const [profile, setProfile] = useState<UserProfile>({
     name: user?.name || 'Anita Sharma',
@@ -586,6 +626,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         language,
         setLanguage: handleSetLanguage,
+        theme,
+        setTheme,
+        toggleTheme,
         inputMode,
         setInputMode: handleSetInputMode,
         profile,

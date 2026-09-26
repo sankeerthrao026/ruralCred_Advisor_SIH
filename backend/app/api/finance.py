@@ -9,12 +9,24 @@ from app.models.schemas import (
     FinanceAdviceResponse,
     SchemeEligibilityInput,
     SchemeCalculationResult,
+    MultiYearProjectionRequest,
+    MultiYearProjectionResponse,
+    FeasibilityEvaluateRequest,
+    FeasibilityEvaluateResponse,
+    ScenarioSimulateRequest,
+    ScenarioComparisonSuiteResponse,
+    MissingInfoEvaluateRequest,
+    MissingInfoEvaluateResponse,
 )
 from app.services.finance_service import (
     calculate_finance_plan,
     calculate_financial_health,
     generate_finance_advice,
+    calculate_multi_year_projection,
 )
+from app.services.feasibility_service import evaluate_business_feasibility
+from app.services.scenario_service import run_scenario_comparison_suite
+from app.services.checklist_service import evaluate_missing_information
 from app.services.firestore_service import firestore_service
 from app.services.logbook_service import logbook_service
 
@@ -27,6 +39,36 @@ def calculate_plan(req: FinanceCalculateRequest):
     Calculates Project Cost, Loan Amount, Scheme, EMI, and Amortization.
     """
     return calculate_finance_plan(req.marginCapital)
+
+@router.post("/multi-year", response_model=MultiYearProjectionResponse)
+def multi_year_projections(req: MultiYearProjectionRequest):
+    """
+    Deterministic Multi-Year Financial Projection Engine (5 Years).
+    Calculates annual P&L, reducing-balance debt service, depreciation, and DSCR.
+    """
+    return calculate_multi_year_projection(req)
+
+@router.post("/feasibility", response_model=FeasibilityEvaluateResponse)
+def assess_feasibility(req: FeasibilityEvaluateRequest):
+    """
+    Structured, explainable 5-dimension business feasibility scoring engine.
+    """
+    return evaluate_business_feasibility(req)
+
+@router.post("/scenarios", response_model=ScenarioComparisonSuiteResponse)
+def simulate_scenarios(req: ScenarioSimulateRequest):
+    """
+    Interactive Scenario Simulation & Risk Engine Integration:
+    Runs Base, Conservative, and Optimistic cases with direct Risk invariant checks.
+    """
+    return run_scenario_comparison_suite(req)
+
+@router.post("/checklist", response_model=MissingInfoEvaluateResponse)
+def evaluate_checklist(req: MissingInfoEvaluateRequest):
+    """
+    Contextual missing information checklist evaluation.
+    """
+    return evaluate_missing_information(req)
 
 @router.get("", response_model=FinancePlanResponse)
 def get_user_finance(auth: AuthContext = Depends(get_auth_context)):
@@ -80,5 +122,6 @@ def calculate_schemes_comparison(req: SchemeEligibilityInput):
     """
     from app.services.schemes_calculator import calculate_all_eligible_schemes
     return calculate_all_eligible_schemes(req)
+
 
 

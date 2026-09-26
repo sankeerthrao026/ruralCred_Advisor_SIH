@@ -42,6 +42,8 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
+import { ScenarioSimulatorCard } from '@/components/simulator/ScenarioSimulatorCard';
+import { MultiYearProjectionTable } from '@/components/projections/MultiYearProjectionTable';
 
 export function FinancialAnalyticsScreen({ setActive }: { setActive?: (value: string) => void }) {
   const { entries, finance, profile, language, totalIncome, totalExpenses, netCashFlow } = useApp();
@@ -788,74 +790,11 @@ export function FinancialAnalyticsScreen({ setActive }: { setActive?: (value: st
         </div>
       </section>
 
-      {/* 8. Sensitivity & What-If Scenarios */}
-      <section className="rounded-2xl border bg-card p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b gap-3">
-          <div>
-            <h3 className="font-bold font-sora text-base text-foreground">
-              {isTe ? 'సున్నితత్వ విశ్లేషణ & వాట్-ఇఫ్ దృశ్యాలు' : 'Sensitivity Analysis & What-If Scenarios'}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Simulate cash buffer resiliency under varying market demand conditions.
-            </p>
-          </div>
+      {/* 8. Interactive Scenario Simulator & Risk Recalculation */}
+      <ScenarioSimulatorCard />
 
-          <div className="flex rounded-lg border bg-muted/40 p-0.5 text-xs">
-            <button
-              onClick={() => setSensitivityScenario('lean')}
-              className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer ${
-                sensitivityScenario === 'lean' ? 'bg-card text-foreground font-bold shadow-xs' : 'text-muted-foreground'
-              }`}
-            >
-              Lean Season (-15%)
-            </button>
-            <button
-              onClick={() => setSensitivityScenario('baseline')}
-              className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer ${
-                sensitivityScenario === 'baseline' ? 'bg-card text-foreground font-bold shadow-xs' : 'text-muted-foreground'
-              }`}
-            >
-              Baseline
-            </button>
-            <button
-              onClick={() => setSensitivityScenario('growth')}
-              className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer ${
-                sensitivityScenario === 'growth' ? 'bg-card text-foreground font-bold shadow-xs' : 'text-muted-foreground'
-              }`}
-            >
-              Peak Demand (+15%)
-            </button>
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-3 gap-4 mt-4">
-          <div className="rounded-xl border p-4 bg-muted/20">
-            <span className="text-[11px] text-muted-foreground block">Projected Revenue</span>
-            <strong className="text-base font-bold text-emerald-800 dark:text-emerald-400 mt-1 block">
-              {formatINR(projectedRevenue)}
-            </strong>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Based on selected scenario</span>
-          </div>
-
-          <div className="rounded-xl border p-4 bg-muted/20">
-            <span className="text-[11px] text-muted-foreground block">Projected Expenses</span>
-            <strong className="text-base font-bold text-rose-800 dark:text-rose-400 mt-1 block">
-              {formatINR(projectedExpense)}
-            </strong>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Feed, fuel, labor & supplies</span>
-          </div>
-
-          <div className="rounded-xl border p-4 bg-muted/20">
-            <span className="text-[11px] text-muted-foreground block">Projected Surplus</span>
-            <strong className="text-base font-bold text-primary mt-1 block">
-              {formatINR(projectedSurplus)}
-            </strong>
-            <span className="text-[10px] text-muted-foreground mt-1 block">
-              Sufficient to cover {formatINR(Math.round(finance.quarterlyEmi / 3))} monthly EMI
-            </span>
-          </div>
-        </div>
-      </section>
+      {/* 9. 5-Year Multi-Year Financial Projections Table */}
+      <MultiYearProjectionTable />
     </div>
   );
 }

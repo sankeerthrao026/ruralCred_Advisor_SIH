@@ -411,8 +411,83 @@ export function DigitalLogbookScreen() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Screen Header Banner */}
+      <div className="rounded-2xl border bg-card p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 hover-lift transition-all">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-semibold flex items-center gap-1">
+              <BookOpen className="size-3.5" />
+              {isTe ? 'డిజిటల్ క్యాష్ లెడ్జర్' : 'Digital Financial Logbook'}
+            </span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
+              {syncStatus === 'synced' ? (isTe ? 'లైవ్ క్లౌడ్ సింక్' : 'Live Ledger') : (isTe ? 'సింక్ అవుతోంది' : 'Syncing')}
+            </span>
+          </div>
+          <h2 className="mt-2 text-xl font-bold font-sora tracking-tight text-foreground">
+            {isTe ? 'నగదు లాగ్‌బుక్ & వ్యాపార లెక్కలు' : 'Digital Financial Ledger & Cash Book'}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground max-w-xl">
+            {isTe
+              ? 'రోజువారీ వ్యాపార రాబడులు, సరఫరా ఖర్చులు, వాయిస్ ఆదేశాలు మరియు స్లిప్ OCR ద్వారా నమోదు చేయండి.'
+              : 'Record daily revenue, operational supplies, customer credit, and expenses with automated Voice STT and OCR receipt parsing.'}
+          </p>
+        </div>
+
+        {/* Header Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            onClick={() => handleOpenAddForm('income')}
+            className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs cursor-pointer active:scale-95"
+          >
+            <PlusCircle className="size-3.5" />
+            <span>{isTe ? '+ రాబడి' : '+ Add Inflow'}</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => handleOpenAddForm('expense')}
+            className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs cursor-pointer active:scale-95"
+          >
+            <MinusCircle className="size-3.5" />
+            <span>{isTe ? '− ఖర్చు' : '− Add Outflow'}</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowVoiceModal(true)}
+            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+          >
+            <Mic className="size-3.5 text-primary" />
+            <span>{isTe ? 'వాయిస్' : isHi ? 'वॉइस' : 'Voice'}</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowOcrModal(true)}
+            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+          >
+            <Camera className="size-3.5 text-primary" />
+            <span>{isTe ? 'OCR' : 'OCR'}</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+          >
+            <Download className="size-3.5" />
+            <span>{isTe ? 'ఎగుమతి' : 'Export'}</span>
+          </Button>
+        </div>
+      </div>
+
       {/* Top Tab Navigation: Cash Logbook vs Khata (Udhaar) */}
-      <div className="flex items-center justify-between border-b pb-3">
+      <div className="flex items-center justify-between border-b pb-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -448,17 +523,6 @@ export function DigitalLogbookScreen() {
             )}
           </button>
         </div>
-
-        {/* Global Export Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowExportModal(true)}
-          className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-        >
-          <Download className="size-3.5" />
-          <span>{isTe ? 'స్టేట్‌మెంట్ ఎగుమతి' : 'Export Statement'}</span>
-        </Button>
       </div>
 
       {activeTab === 'logbook' ? (
@@ -955,9 +1019,10 @@ export function DigitalLogbookScreen() {
                     <tr>
                       <th className="py-2.5 px-3 font-semibold">{t.date}</th>
                       <th className="py-2.5 px-3 font-semibold">{t.note}</th>
+                      <th className="py-2.5 px-3 font-semibold">{t.type}</th>
                       <th className="py-2.5 px-3 font-semibold">{t.category}</th>
-                      <th className="py-2.5 px-3 font-semibold">Tags</th>
                       <th className="py-2.5 px-3 font-semibold text-right">{t.amount}</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">{isTe ? 'మూలం / స్థితి' : 'Status / Source'}</th>
                       <th className="py-2.5 px-3 font-semibold text-center">{isTe ? 'చర్యలు' : 'Actions'}</th>
                     </tr>
                   </thead>
@@ -967,32 +1032,46 @@ export function DigitalLogbookScreen() {
                         <td className="py-3 px-3 text-muted-foreground whitespace-nowrap font-medium">
                           {formatIsoToDisplayDate(entry.date)}
                         </td>
-                        <td className="py-3 px-3 font-medium text-foreground max-w-xs truncate">
-                          {entry.note}
-                        </td>
                         <td className="py-3 px-3">
+                          <p className="font-medium text-foreground max-w-xs truncate">
+                            {entry.note}
+                          </p>
+                          {entry.tags && entry.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {entry.tags.map((tg) => (
+                                <span
+                                  key={tg}
+                                  className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20"
+                                >
+                                  {tg}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              entry.type === 'income'
+                                ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-800 dark:text-rose-300 border border-rose-500/20'
+                            }`}
+                          >
+                            <span
+                              className={`size-1.5 rounded-full ${
+                                entry.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'
+                              }`}
+                            />
+                            {entry.type === 'income' ? (isTe ? 'రాబడి' : 'Inflow') : (isTe ? 'ఖర్చు' : 'Outflow')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
                           <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                             {entry.category}
                           </span>
                         </td>
-                        <td className="py-3 px-3">
-                          <div className="flex flex-wrap gap-1 max-w-xs">
-                            {entry.tags && entry.tags.length > 0 ? (
-                              entry.tags.map((tg) => (
-                                <span
-                                  key={tg}
-                                  className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20"
-                                >
-                                  {tg}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground/60">—</span>
-                            )}
-                          </div>
-                        </td>
                         <td
-                          className={`py-3 px-3 text-right font-bold tabular-nums ${
+                          className={`py-3 px-3 text-right font-bold tabular-nums whitespace-nowrap font-sora ${
                             entry.type === 'income'
                               ? 'text-emerald-700 dark:text-emerald-400'
                               : 'text-rose-700 dark:text-rose-400'
@@ -1000,7 +1079,13 @@ export function DigitalLogbookScreen() {
                         >
                           {entry.type === 'income' ? `+${formatINR(entry.amount)}` : `-${formatINR(entry.amount)}`}
                         </td>
-                        <td className="py-3 px-3 text-center">
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground border">
+                            <CheckCircle2 className="size-2.5 text-emerald-600" />
+                            {isTe ? 'ధ్రువీకరించబడింది' : 'Recorded'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center gap-1">
                             {/* Edit Action Button */}
                             <button

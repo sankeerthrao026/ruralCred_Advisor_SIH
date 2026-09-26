@@ -93,6 +93,7 @@ class SchemeEligibilityInput(BaseModel):
     locationType: Literal["rural", "urban"] = Field(default="rural", description="Geographic location")
     isNewEnterprise: bool = Field(default=True, description="Whether this is a new greenfield enterprise")
     isArtisanTrade: Optional[bool] = Field(default=None, description="Explicit artisan craft flag")
+    projectCost: Optional[float] = Field(default=None, description="Total project capital cost in INR")
 
 class SchemeCalculationResult(BaseModel):
     schemeId: str
@@ -251,31 +252,31 @@ class DashboardResponse(BaseModel):
 
 # ----------------- Business Advisor (RAG + Gemini) -----------------
 class MarketReach(BaseModel):
-    headline: str
-    details: str
-    targetSegment: str
-    estimatedLocalDemand: str
+    headline: str = "Local Market Reach"
+    details: str = "Commercial off-take and market coverage"
+    targetSegment: str = "Local and regional consumers"
+    estimatedLocalDemand: str = "Steady demand"
 
 class OpportunityAnalysis(BaseModel):
-    overview: str
-    primaryDrivers: List[str]
-    seasonalOpportunity: str
+    overview: str = "Growth opportunities in the district"
+    primaryDrivers: List[str] = Field(default_factory=list)
+    seasonalOpportunity: str = "Year-round demand with seasonal variations"
 
 class SWOTAnalysis(BaseModel):
-    strengths: List[str]
-    weaknesses: List[str]
-    opportunities: List[str]
-    threats: List[str]
+    strengths: List[str] = Field(default_factory=list)
+    weaknesses: List[str] = Field(default_factory=list)
+    opportunities: List[str] = Field(default_factory=list)
+    threats: List[str] = Field(default_factory=list)
 
 class CompetitorDensity(BaseModel):
-    densityLevel: Literal["Low", "Moderate", "High"]
-    description: str
-    mitigationStrategy: str
+    densityLevel: str = "Moderate"
+    description: str = "Moderate competitor presence"
+    mitigationStrategy: str = "Differentiate on product quality and reliability"
 
 class PricingSuggestion(BaseModel):
-    recommendedBand: str
-    benchmarkComparison: str
-    marginTarget: str
+    recommendedBand: str = "Prevailing Mandi Rates"
+    benchmarkComparison: str = "Aligned with official benchmarks"
+    marginTarget: str = "18% - 28%"
 
 class GroundedFacts(BaseModel):
     district: str
@@ -363,6 +364,7 @@ class BusinessPlanRequest(BaseModel):
     monthlyExpenseEstimate: Optional[float] = None
     businessAdvisorSummary: Optional[str] = None
     language: str = "en"
+    hasUdyamRegistration: Optional[bool] = False
 
 class BusinessPlanResponse(BaseModel):
     enterpriseName: str
@@ -372,6 +374,7 @@ class BusinessPlanResponse(BaseModel):
     gender: str
     socialCategory: str
     isNewEnterprise: bool
+    hasUdyamRegistration: Optional[bool] = False
     generatedDate: str
     executiveSummary: str
     executiveSummaryTe: Optional[str] = None
@@ -402,6 +405,201 @@ class BusinessPlanResponse(BaseModel):
     riskMitigationsTe: List[str]
     providerUsed: str
 
+# ----------------- Phase 1: Multi-Year, Feasibility, Checklist, Scenarios -----------------
+class MultiYearProjectionYearSchema(BaseModel):
+    year: int
+    grossRevenue: float
+    operatingExpenses: float
+    netOperatingIncome: float
+    depreciation: float
+    interestPaid: float
+    principalRepaid: float
+    totalDebtService: float
+    netCashFlow: float
+    closingCashBalance: float
+    closingLoanBalance: float
+    dscr: float
+    isDscrHealthy: bool
+
+class MultiYearFinancialAssumptionsSchema(BaseModel):
+    projectionYears: int
+    baseMonthlyRevenue: float
+    baseMonthlyExpense: float
+    annualRevenueGrowthPct: float
+    annualExpenseGrowthPct: float
+    assetDepreciationRatePct: float
+    projectCost: float
+    marginCapital: float
+    loanAmount: float
+    interestRateAnnual: float
+    tenureYears: float
+    moratoriumMonths: int
+
+class MultiYearProjectionRequest(BaseModel):
+    marginCapital: float = Field(default=100000.0, gt=0)
+    projectCost: Optional[float] = None
+    loanAmount: Optional[float] = None
+    baseMonthlyRevenue: Optional[float] = None
+    baseMonthlyExpense: Optional[float] = None
+    annualRevenueGrowthPct: Optional[float] = 8.0
+    annualExpenseGrowthPct: Optional[float] = 5.0
+    assetDepreciationRatePct: Optional[float] = 10.0
+    interestRateAnnual: Optional[float] = None
+    tenureYears: Optional[float] = None
+    moratoriumMonths: Optional[int] = None
+    projectionYears: Optional[int] = 5
+
+class MultiYearProjectionResponse(BaseModel):
+    assumptions: MultiYearFinancialAssumptionsSchema
+    years: List[MultiYearProjectionYearSchema]
+    averageDscr: float
+    minDscr: float
+    totalFiveYearNetCashFlow: float
+    totalInterestPaid: float
+    isBankable: bool
+    bankabilitySummary: str
+    bankabilitySummaryTe: str
+
+class FeasibilityDimensionSchema(BaseModel):
+    key: str
+    label: str
+    labelTe: str
+    weight: float
+    weightedPoints: float
+    score: float
+    status: str
+    statusTe: str
+    reasons: List[str]
+    reasonsTe: List[str]
+
+class FeasibilityEvaluateRequest(BaseModel):
+    category: str = "Dairy Farming"
+    location: str = "Warangal, Telangana"
+    projectCost: Optional[float] = None
+    marginCapital: Optional[float] = 100000.0
+    loanAmount: Optional[float] = None
+    monthlyRevenueEstimate: Optional[float] = None
+    monthlyExpenseEstimate: Optional[float] = None
+    competitorDensityLevel: Optional[str] = "Moderate"
+    hasActiveLoan: Optional[bool] = False
+    simulatingSecondLoan: Optional[bool] = False
+
+class FeasibilityEvaluateResponse(BaseModel):
+    overallScore: int
+    grade: str
+    gradeTe: str
+    summary: str
+    summaryTe: str
+    dimensions: Dict[str, FeasibilityDimensionSchema]
+    strengths: List[str]
+    strengthsTe: List[str]
+    vulnerabilities: List[str]
+    vulnerabilitiesTe: List[str]
+    recommendedActions: List[str]
+    recommendedActionsTe: List[str]
+    assumptionsUsed: List[str]
+    calculatedAt: str
+
+class ChecklistItemSchema(BaseModel):
+    id: str
+    category: str
+    categoryLabel: str
+    categoryLabelTe: str
+    field: str
+    label: str
+    labelTe: str
+    isRequired: bool
+    isAvailable: bool
+    currentValue: Optional[str] = None
+    promptMessage: str
+    promptMessageTe: str
+
+class MissingInfoEvaluateRequest(BaseModel):
+    name: Optional[str] = None
+    businessName: Optional[str] = None
+    category: Optional[str] = None
+    location: Optional[str] = None
+    marginCapital: Optional[float] = None
+    projectCost: Optional[float] = None
+    loanAmount: Optional[float] = None
+    monthlyRevenueEstimate: Optional[float] = None
+    monthlyExpenseEstimate: Optional[float] = None
+    targetUnits: Optional[float] = None
+    hasMachineryQuotation: Optional[bool] = None
+    hasLandOrLeaseAgreement: Optional[bool] = None
+    hasAadhaarVerified: Optional[bool] = None
+    hasUdyamRegistration: Optional[bool] = None
+
+class MissingInfoEvaluateResponse(BaseModel):
+    isComplete: bool
+    totalItemsCount: int
+    availableItemsCount: int
+    missingRequiredCount: int
+    completionPercentage: int
+    availableItems: List[ChecklistItemSchema]
+    missingRequiredItems: List[ChecklistItemSchema]
+    optionalMissingItems: List[ChecklistItemSchema]
+
+class ScenarioResultSchema(BaseModel):
+    scenarioId: str
+    name: str
+    nameTe: str
+    description: str
+    descriptionTe: str
+    revenueDeltaPct: float
+    expenseDeltaPct: float
+    interestRateAnnual: float
+    projectCost: float
+    marginCapital: float
+    loanAmount: float
+    monthlyRevenue: float
+    monthlyExpense: float
+    monthlyNetOperatingIncome: float
+    annualRevenue: float
+    annualExpense: float
+    annualNetOperatingIncome: float
+    quarterlyEmi: float
+    annualDebtService: float
+    netAnnualCashFlow: float
+    dscr: float
+    isDscrHealthy: bool
+    operatingMarginPct: float
+    breakEvenMonthlyRevenue: float
+    riskSeverity: str
+    riskSeverityTe: str
+    riskShiftExplanation: str
+    riskShiftExplanationTe: str
+    triggeredSafeguards: List[str]
+    triggeredSafeguardsTe: List[str]
+
+class ScenarioSimulateRequest(BaseModel):
+    marginCapital: float = 100000.0
+    projectCost: Optional[float] = None
+    loanAmount: Optional[float] = None
+    baseMonthlyRevenue: Optional[float] = None
+    baseMonthlyExpense: Optional[float] = None
+    interestRateAnnual: Optional[float] = None
+    tenureYears: Optional[float] = None
+    hasActiveLoan: Optional[bool] = False
+    simulatingSecondLoan: Optional[bool] = False
+    customRevenueDeltaPct: Optional[float] = None
+    customExpenseDeltaPct: Optional[float] = None
+    customInterestRateDeltaPct: Optional[float] = None
+    customProjectCost: Optional[float] = None
+    customLoanAmount: Optional[float] = None
+
+class ScenarioComparisonSuiteResponse(BaseModel):
+    base: ScenarioResultSchema
+    conservative: ScenarioResultSchema
+    optimistic: ScenarioResultSchema
+    custom: Optional[ScenarioResultSchema] = None
+    resilienceRating: str
+    resilienceRatingTe: str
+    executiveSummary: str
+    executiveSummaryTe: str
+    recommendations: List[str]
+    recommendationsTe: List[str]
+
 # ----------------- Health -----------------
 class HealthResponse(BaseModel):
     status: str = "healthy"
@@ -413,3 +611,4 @@ class HealthResponse(BaseModel):
     chromadb_documents: int = 0
     gemini_configured: bool = False
     active_mode: str = "Live Gemini + ChromaDB RAG"
+

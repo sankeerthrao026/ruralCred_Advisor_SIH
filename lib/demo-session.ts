@@ -14,6 +14,7 @@ export interface DemoUserProfile {
   onboardingCompleted: boolean;
   gender?: string;
   socialCategory?: string;
+  hasUdyamRegistration?: boolean;
 }
 
 export interface DemoUser {

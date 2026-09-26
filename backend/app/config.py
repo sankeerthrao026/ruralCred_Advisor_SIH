@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     
     # AI Keys
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    NVIDIA_API_KEY: str = os.getenv("NVIDIA_API_KEY", "")
+    NVIDIA_BASE_URL: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+    NVIDIA_MODEL: str = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
     
     # ChromaDB
     CHROMA_PERSIST_DIR: str = os.getenv(

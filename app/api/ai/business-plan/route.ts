@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
       monthlyRevenueEstimate,
       monthlyExpenseEstimate,
       businessAdvisorSummary,
+      hasUdyamRegistration,
       finance,
       advisor,
       language,
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
       monthlyExpenseEstimate,
       businessAdvisorSummary: businessAdvisorSummary || advisor?.marketReach?.headline,
       language: language === 'te' ? 'te' : 'en',
+      hasUdyamRegistration: hasUdyamRegistration ?? false,
     };
 
     // Try FastAPI Backend

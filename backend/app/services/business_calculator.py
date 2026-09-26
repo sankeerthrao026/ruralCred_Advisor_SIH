@@ -216,8 +216,10 @@ class BusinessCalculationEngine:
             "best places", "good location", "good place", "profitable location", "where i can get great profits",
             "where if i establish", "which area is better", "suitable location", "cluster", "location for my",
             "place for my", "where to locate", "area for my", "localities can give", "places where",
-            "ఎక్కడ ప్రారంభించాలి", "ఎక్కడ పెట్టాలి", "ఎక్కడ స్థాపించాలి", "ఏ ప్రాంతం", "ఏ ప్రదేశాలు",
-            "స్థలాలు", "మంచి ప్రదేశం", "లొకేషన్", "ఏ ఊరు", "ప్రదేశం", "స్థలం ఎంపిక", "ఏ ఏరియా", "ప్రదేశాలు"
+            "which areas", "best suitable", "suitable to open", "suitable to start",
+            "ఎక్కడ ప్రారంభించాలి", "ఎక్కడ పెట్టాలి", "ఎక్కడ స్థాపించాలి", "ఏ ప్రాంతం", "ఏ ప్రాంతాలు", "ప్రాంతాలు", "ఏ ప్రదేశాలు",
+            "స్థలాలు", "మంచి ప్రదేశం", "లొకేషన్", "ఏ ఊరు", "ప్రదేశం", "స్థలం ఎంపిక", "ఏ ఏరియా", "ప్రదేశాలు",
+            "అనువైన ప్రాంతాలు", "అనువైన స్థలాలు", "అనువైన స్థలం"
         ])
 
         # 2. Feed / Raw Material / Input Sourcing (Check before generic buy/invest)

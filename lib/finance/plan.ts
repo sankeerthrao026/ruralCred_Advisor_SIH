@@ -1,4 +1,8 @@
 import { calculateAllEligibleSchemes, SchemeCalculationResult, SchemeEligibilityInput } from './schemes';
+import { calculateMultiYearProjection, MultiYearProjectionResult } from './engine';
+import { evaluateBusinessFeasibility, FeasibilityAssessmentResult } from './feasibility';
+import { runScenarioComparisonSuite, ScenarioSuiteComparison } from './scenarios';
+import { evaluateMissingInformation, MissingInformationResult } from './checklist';
 
 export interface MonthlyCashFlowItem {
   month: number;
@@ -64,6 +68,7 @@ export interface BusinessPlanRequest {
   monthlyExpenseEstimate?: number;
   businessAdvisorSummary?: string;
   language?: 'en' | 'te';
+  hasUdyamRegistration?: boolean;
 }
 
 export interface UnifiedBusinessPlan {
@@ -74,6 +79,7 @@ export interface UnifiedBusinessPlan {
   gender: string;
   socialCategory: string;
   isNewEnterprise: boolean;
+  hasUdyamRegistration?: boolean;
   generatedDate: string;
   executiveSummary: string;
   executiveSummaryTe?: string;
@@ -103,6 +109,10 @@ export interface UnifiedBusinessPlan {
   riskMitigations: string[];
   riskMitigationsTe: string[];
   providerUsed: string;
+  feasibility?: FeasibilityAssessmentResult;
+  multiYearProjections?: MultiYearProjectionResult;
+  scenarioAnalysis?: ScenarioSuiteComparison;
+  missingInfoChecklist?: MissingInformationResult;
 }
 
 const MONTH_NAMES_EN = [
@@ -390,6 +400,7 @@ export function generateUnifiedBusinessPlan(req: BusinessPlanRequest): UnifiedBu
 
   const eligInput: SchemeEligibilityInput = {
     loanAmount,
+    projectCost,
     category: req.category,
     gender: req.gender || 'female',
     socialCategory: req.socialCategory || 'OBC',
@@ -530,5 +541,47 @@ export function generateUnifiedBusinessPlan(req: BusinessPlanRequest): UnifiedBu
     riskMitigations,
     riskMitigationsTe,
     providerUsed: 'Unified Plan Engine (Deterministic + Grounded Benchmarks)',
+    hasUdyamRegistration: req.hasUdyamRegistration ?? false,
+    feasibility: evaluateBusinessFeasibility({
+      category: req.category,
+      location: req.location,
+      projectCost,
+      marginCapital: promoterMargin,
+      loanAmount: sanctionedLoan,
+      monthlyRevenueEstimate: req.monthlyRevenueEstimate,
+      monthlyExpenseEstimate: req.monthlyExpenseEstimate,
+    }),
+    multiYearProjections: calculateMultiYearProjection({
+      marginCapital: promoterMargin,
+      projectCost,
+      loanAmount: sanctionedLoan,
+      interestRateAnnual: interestRate,
+      tenureYears,
+      moratoriumMonths,
+      baseMonthlyRevenue: req.monthlyRevenueEstimate,
+      baseMonthlyExpense: req.monthlyExpenseEstimate,
+      projectionYears: 5,
+    }),
+    scenarioAnalysis: runScenarioComparisonSuite({
+      marginCapital: promoterMargin,
+      projectCost,
+      loanAmount: sanctionedLoan,
+      baseMonthlyRevenue: req.monthlyRevenueEstimate,
+      baseMonthlyExpense: req.monthlyExpenseEstimate,
+      interestRateAnnual: interestRate,
+      tenureYears,
+    }),
+    missingInfoChecklist: evaluateMissingInformation({
+      name: req.entrepreneurName,
+      businessName: req.businessName,
+      category: req.category,
+      location: req.location,
+      marginCapital: promoterMargin,
+      projectCost,
+      loanAmount: sanctionedLoan,
+      monthlyRevenueEstimate: req.monthlyRevenueEstimate,
+      monthlyExpenseEstimate: req.monthlyExpenseEstimate,
+      hasUdyamRegistration: req.hasUdyamRegistration,
+    }),
   };
 }

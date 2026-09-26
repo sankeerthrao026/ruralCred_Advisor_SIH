@@ -49,7 +49,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${sora.variable} ${inter.variable}`}>
+    <html lang="en" className={`dark ${sora.variable} ${inter.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('ruralcred-theme');if(t==='light'){document.documentElement.classList.remove('dark');document.documentElement.classList.add('light');}else{document.documentElement.classList.add('dark');document.documentElement.classList.remove('light');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="antialiased font-sans bg-background text-foreground">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
@@ -57,3 +64,4 @@ export default function RootLayout({
     </html>
   )
 }
+
