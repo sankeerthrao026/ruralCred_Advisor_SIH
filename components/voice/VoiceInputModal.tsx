@@ -18,6 +18,7 @@ import {
   startSpeechListening,
   startAudioRecordingFallback,
   parseSpokenTransactionWithFallback,
+  extractCleanNote,
   SpokenTransactionResult,
 } from '@/lib/voice/speech';
 import { en as enDict, te as teDict, hi as hiDict } from '@/lib/i18n';
@@ -224,7 +225,7 @@ export function VoiceInputModal({
                 amount: structured.amount,
                 type: structured.type === 'expense' ? 'expense' : 'income',
                 category: structured.category || 'Sales',
-                note: structured.note || transcribedText,
+                note: structured.note !== undefined && structured.note !== null ? structured.note : extractCleanNote(transcribedText),
                 confidence: 0.95,
               });
               setState('success');

@@ -312,13 +312,13 @@ export function SettingsScreen({ setActive }: { setActive?: (value: string) => v
         </div>
       </section>
 
-      {/* 3. Notification Preferences */}
+      {/* 4. Notification Preferences */}
       <section className="rounded-2xl border bg-card p-6 shadow-xs card-lift stagger-4">
         <div className="pb-3 border-b flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="size-4 text-primary" />
             <h3 className="font-bold font-sora text-base text-foreground">
-              {isTe ? '3. అలర్ట్‌లు & నోటిఫికేషన్లు' : '3. Notification & Repayment Alerts'}
+              {isTe ? '4. అలర్ట్‌లు & నోటిఫికేషన్లు' : '4. Notification & Repayment Alerts'}
             </h3>
           </div>
           {savedNotificationBanner && (
@@ -395,73 +395,19 @@ export function SettingsScreen({ setActive }: { setActive?: (value: string) => v
         </div>
       </section>
 
-      {/* 4. Sync Status & FastAPI Backend Mode */}
+      {/* 5. Data Backup & Export Statements */}
       <section className="rounded-2xl border bg-card p-6 shadow-xs card-lift stagger-5">
-        <div className="pb-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Cpu className="size-4 text-primary" />
-            <h3 className="font-bold font-sora text-base text-foreground">
-              {isTe ? '4. బ్యాకెండ్ కనెక్షన్ & సింక్ స్థితి' : '4. Backend Architecture & Sync Status'}
-            </h3>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleManualSync}
-            disabled={backendLoading}
-            className="h-8 text-xs font-semibold cursor-pointer"
-          >
-            <RefreshCw className={`size-3.5 mr-1.5 ${backendLoading ? 'animate-spin' : ''}`} />
-            <span>{backendLoading ? 'Checking...' : 'Force Sync Check'}</span>
-          </Button>
-        </div>
-
-        <div className="grid sm:grid-cols-3 gap-4 mt-4 text-xs">
-          <div className="rounded-xl border p-3.5 bg-muted/20">
-            <span className="text-muted-foreground block">FastAPI Server:</span>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`size-2 rounded-full ${isBackendOnline ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              <strong className="text-sm font-semibold text-foreground">
-                {isBackendOnline ? 'Connected (Port 8000)' : 'Grounded Local Fallback'}
-              </strong>
-            </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Last checked: {lastSyncTime}</span>
-          </div>
-
-          <div className="rounded-xl border p-3.5 bg-muted/20">
-            <span className="text-muted-foreground block">AI Advisory Provider:</span>
-            <strong className="text-sm font-semibold text-foreground mt-1 block">
-              Google Gemini (gemini-2.5-flash)
-            </strong>
-            <span className="text-[10px] text-muted-foreground mt-1 block">RAG Context Injection Enabled</span>
-          </div>
-
-          <div className="rounded-xl border p-3.5 bg-muted/20">
-            <span className="text-muted-foreground block">Vector Knowledge Store:</span>
-            <strong className="text-sm font-semibold text-foreground mt-1 block">
-              ChromaDB (ruralcred_knowledge)
-            </strong>
-            <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-medium mt-1 block">
-              6 Approved Local Datasets Indexed
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. Data Backup & Export */}
-      <section className="rounded-2xl border bg-card p-6 shadow-xs card-lift stagger-6">
         <div className="pb-3 border-b flex items-center gap-2">
           <Download className="size-4 text-primary" />
           <h3 className="font-bold font-sora text-base text-foreground">
-            {isTe ? '5. డేటా బ్యాకప్ & ఎగుమతి' : '5. Data Backup & System Maintenance'}
+            {isTe ? '5. డేటా ఎగుమతి & నివేదికలు' : '5. Data Export & Financial Statements'}
           </h3>
         </div>
 
         <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
           {isTe
-            ? 'మీ లాగ్‌బుక్ మరియు వ్యాపార ప్రొఫైల్ డేటాను భద్రంగా డౌన్‌లోడ్ చేసుకోండి లేదా ఆఫ్‌లైన్ కాష్‌ని క్లియర్ చేయండి.'
-            : 'Download offline records for institutional submission or reset local sandbox cache.'}
+            ? 'మీ వ్యాపార లాగ్‌బుక్ మరియు బ్యాంకింగ్ నివేదికలను అధికారిక సమర్పణల కోసం డౌన్‌లోడ్ చేసుకోండి.'
+            : 'Download offline records and formatted statements for official institutional and banking submission.'}
         </p>
 
         <div className="flex flex-wrap items-center gap-3 mt-4">
@@ -483,16 +429,6 @@ export function SettingsScreen({ setActive }: { setActive?: (value: string) => v
           >
             <Download className="size-3.5" />
             <span>{isTe ? 'బ్యాంక్ స్టేట్‌మెంట్ PDF' : 'Download Bank Statement (PDF)'}</span>
-          </Button>
-
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleClearCache}
-            className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer ml-auto"
-          >
-            <Trash2 className="size-3.5" />
-            <span>{isTe ? 'కాష్ క్లియర్ చేయండి' : 'Clear Local Cache'}</span>
           </Button>
         </div>
       </section>

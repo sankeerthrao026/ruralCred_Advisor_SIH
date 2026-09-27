@@ -336,7 +336,7 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
           ) : (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="size-4 text-emerald-600" />
-              <span>{dictionary.offlineSimulationStatus}</span>
+              <span>{language === 'te' ? 'వివరాలు సురక్షితంగా సేవ్ చేయబడతాయి' : 'All profile data saved securely'}</span>
             </div>
           )}
           <Button type="submit" size="lg" className="px-6 font-semibold">

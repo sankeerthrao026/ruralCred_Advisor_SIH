@@ -19,7 +19,7 @@ Follow these rules:
 1. "amount": integer or float (e.g. "five hundred" -> 500, "రెండు వేలు" -> 2000, "पाँच सौ" -> 500, "1500" -> 1500). If no amount is mentioned, set to null.
 2. "type": "income" if money is earned, received, or products/produce sold. "expense" if money is paid, spent, feed/material purchased, rent, wages, or supplies.
 3. "category": a standard business category (e.g. "Sales", "Cooperative Payout", "Feed / Supplies", "Raw Material", "Transport", "Wages", "Rent & Power", "Other").
-4. "note": concise, clean description of the item or action (e.g. "Sold 20L milk to dairy", "Purchased cattle feed", "Paid shop electricity").
+4. "note": concise, clean description of the specific item, service, or purpose if mentioned (e.g. "20L milk to dairy", "Cattle feed", "Shop electricity"). If the speaker only spoke a transaction command (e.g. "Add 50000 to sales", "50,000 సేల్స్ ఖాతాలో ఆడ్ చేయి", "50000 बिक्री खाते में जोड़ें") without a specific item/reason description, set "note" to "" (empty string). DO NOT output the raw command or category as the note.
 5. Output ONLY valid JSON:
 {
   "amount": number | null,

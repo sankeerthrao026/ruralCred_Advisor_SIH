@@ -125,16 +125,11 @@ const navigationSections: NavSection[] = [
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3 group cursor-pointer">
-      <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-xs transition-transform duration-200 group-hover:scale-105">
-        <span className="text-lg font-bold font-sora">R</span>
-      </div>
-      <div>
-        <p className="font-bold leading-none tracking-tight font-sora text-slate-900 dark:text-slate-100">RuralCred</p>
-        <p className="mt-1 text-[10px] uppercase font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
-          Advisor
-        </p>
-      </div>
+    <div className="flex flex-col group cursor-pointer">
+      <p className="text-xl font-bold leading-none tracking-tight font-sora text-slate-900 dark:text-white">RuralCred</p>
+      <p className="mt-1 text-[10px] uppercase font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
+        Advisor
+      </p>
     </div>
   );
 }
@@ -520,40 +515,10 @@ function RuralCredAppInner() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* FastAPI Backend Connection Mode Indicator */}
-            {backendMode === 'backend' ? (
-              <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold border border-emerald-500/20 shadow-2xs transition-all"
-                title="FastAPI Backend Live: Using Python server as source of truth"
-              >
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="hidden md:inline">FastAPI Live</span>
-                <span className="md:hidden">FastAPI</span>
-              </div>
-            ) : (
-              <div
-                className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-300 text-[11px] font-semibold border border-amber-500/20 shadow-2xs transition-all"
-                title="Offline / Local Calculation Mode: FastAPI server unreachable. Resilient local engine active."
-              >
-                <span className="size-1.5 rounded-full bg-amber-500" />
-                <span className="hidden md:inline">{isTe ? 'ఆఫ్‌లైన్ మోడ్' : 'Offline Mode'}</span>
-                <span className="md:hidden">Local</span>
-                <button
-                  type="button"
-                  onClick={() => refreshBackendData()}
-                  className="ml-0.5 text-amber-700 dark:text-amber-300 hover:text-amber-950 dark:hover:text-amber-100 cursor-pointer p-0.5 transition-transform active:scale-90"
-                  title="Retry FastAPI connection"
-                  disabled={backendLoading}
-                >
-                  <RefreshCw className={`size-2.5 ${backendLoading ? 'animate-spin' : ''}`} />
-                </button>
-              </div>
-            )}
-
             {/* Demo Mode Indicator */}
             {isDemo && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] font-semibold border border-amber-500/20 shadow-2xs">
-                <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[11px] font-semibold border border-slate-200 dark:border-white/10 shadow-2xs">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Demo Mode</span>
               </div>
             )}

@@ -237,7 +237,7 @@ export function DigitalLogbookScreen() {
           amount: cleanAmount,
           type,
           category,
-          note: note || (type === 'income' ? 'Daily sales receipt' : 'Operational supply expense'),
+          note: note.trim(),
           tags,
         });
       }
@@ -248,7 +248,7 @@ export function DigitalLogbookScreen() {
         amount: cleanAmount,
         type,
         category,
-        note: note || (type === 'income' ? 'Daily sales receipt' : 'Operational supply expense'),
+        note: note.trim(),
         tags,
       });
     }
@@ -1034,7 +1034,7 @@ export function DigitalLogbookScreen() {
                         </td>
                         <td className="py-3 px-3">
                           <p className="font-medium text-foreground max-w-xs truncate">
-                            {entry.note}
+                            {entry.note || '-'}
                           </p>
                           {entry.tags && entry.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">

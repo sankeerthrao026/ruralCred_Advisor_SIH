@@ -471,9 +471,7 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
                 {isTe ? 'AI లోన్ & ఫైనాన్స్ అడ్వైజర్' : 'AI Loan & Finance Advisor'}
               </span>
               <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full">
-                {backendMode === 'backend'
-                  ? (isTe ? 'ఫాస్ట్‌ఏపీఐ బ్యాంకింగ్ ఇంజిన్' : 'FastAPI Banking Engine')
-                  : (isTe ? 'లోకల్ ఇంజిన్' : 'Deterministic Engine')}
+                {isTe ? 'సంస్థాగత రుణ విశ్లేషణ ఇంజిన్' : 'Institutional Credit Engine'}
               </span>
             </div>
             <h1 className="mt-2 text-xl sm:text-2xl font-bold font-sora tracking-tight text-foreground">

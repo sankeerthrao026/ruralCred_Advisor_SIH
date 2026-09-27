@@ -68,14 +68,14 @@ const AI_PIPELINE_STEPS = [
     icon: Database,
     titleEn: 'Querying district mandi pricing & regional enterprise benchmarks',
     titleTe: 'జిల్లా మండి ధరలు మరియు ప్రాంతీయ వ్యాపార బెంచ్‌మార్క్‌లను శోధిస్తున్నాము',
-    detailEn: 'ChromaDB vector store • APMC & NBCFDC localized indices',
-    detailTe: 'ChromaDB నాలెడ్జ్ బేస్ • APMC మార్కెట్ డేటా',
+    detailEn: 'APMC & Agriculture Marketing localized market data indices',
+    detailTe: 'APMC మార్కెట్ డేటా మరియు వ్యవసాయ మార్కెటింగ్ సూచికలు',
   },
   {
     step: 2,
     icon: Cpu,
-    titleEn: 'Evaluating enterprise viability & unit economics with Gemini 2.5 Flash',
-    titleTe: 'జెమినీ 2.5 ఫ్లాష్ ద్వారా యూనిట్ ఎకనామిక్స్ మరియు రిస్క్ పారామితుల విశ్లేషణ',
+    titleEn: 'Evaluating enterprise viability & unit economics',
+    titleTe: 'యూనిట్ ఎకనామిక్స్ మరియు రిస్క్ పారామితుల విశ్లేషణ',
     detailEn: 'Evaluating margin capital, target demand, competitor density',
     detailTe: 'పెట్టుబడి మూలధనం, కేటగిరీ గిరాకీ, కాలానుగుణ మార్పులు',
   },
@@ -586,27 +586,27 @@ export function BusinessAdvisorScreen() {
   return (
     <div className="flex flex-col gap-6">
       {/* Grounding Source Attribution Banner */}
-      <div className="rounded-2xl border bg-amber-500/5 dark:bg-amber-500/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-amber-500/30">
+      <div className="rounded-2xl border bg-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-emerald-500/20 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="grid size-10 place-items-center rounded-xl bg-amber-500/20 text-amber-900 dark:text-amber-300 shrink-0">
+          <div className="grid size-10 place-items-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 shrink-0">
             <Database className="size-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-xs font-bold text-amber-950 dark:text-amber-200">
+              <p className="text-xs font-bold text-foreground">
                 {isTe
-                  ? 'ChromaDB వెక్టార్ స్టోర్ ఆధారిత హైపర్-లోకల్ ఇంటరాక్టివ్ విశ్లేషణ'
-                  : 'Hyper-Local RAG Intelligence (ChromaDB + Gemini)'}
+                  ? 'హైపర్-లోకల్ మార్కెట్ ఇంటెలిజెన్స్'
+                  : 'Hyper-Local Market Intelligence'}
               </p>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
-                Live ChromaDB Vector Store
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {isTe ? 'ప్రత్యక్ష APMC మార్కెట్ బెంచ్‌మార్క్‌లు' : 'Live APMC Market Benchmarks'}
               </span>
             </div>
-            <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               {isTe
-                ? 'తెలంగాణ, ఆంధ్రప్రదేశ్, మహారాష్ట్ర, కర్ణాటక, ఉత్తరప్రదేశ్, బీహార్ జిల్లాల మండి ధరలు, కాలానుగుణ మార్పులు మరియు సంభాషణాత్మక RAG శోధన.'
-                : 'Indexed across 22+ districts in TS, AP, MH, KA, UP & Bihar. Runs real-time vector retrieval on every follow-up question.'}
+                ? 'తెలంగాణ, ఆంధ్రప్రదేశ్ జిల్లాల మండి ధరలు, కాలానుగుణ మార్పులు మరియు మార్కెట్ విశ్లేషణ.'
+                : 'Grounding across 22+ agricultural districts. Evaluates real-time mandi prices and seasonal demand.'}
             </p>
           </div>
         </div>

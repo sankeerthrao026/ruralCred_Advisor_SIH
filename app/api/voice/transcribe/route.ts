@@ -39,7 +39,7 @@ Return JSON:
     "amount": number or null,
     "type": "income" or "expense",
     "category": "string",
-    "note": "string"
+    "note": "string (specific item/purpose description, or empty string if pure command)"
   }
 }`;
 

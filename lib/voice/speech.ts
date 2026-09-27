@@ -357,38 +357,41 @@ export interface SpokenTransactionResult {
 // ---------------------------------------------------------------------------
 
 // Minimal English / Hindi / Telugu number-word maps covering everyday
-// transaction amounts (roughly ₹1 to a few lakh).
+// transaction amounts (roughly ₹1 to a few lakh / crore).
 const NUMBER_WORDS: Record<string, number> = {
   // English
   zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
   ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
   seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
   sixty: 60, seventy: 70, eighty: 80, ninety: 90,
-  hundred: 100, thousand: 1000, thousands: 1000, lakh: 100000, lakhs: 100000,
+  hundred: 100, thousand: 1000, thousands: 1000, k: 1000, lakh: 100000, lakhs: 100000,
+  crore: 10000000, crores: 10000000,
   // Hindi
   एक: 1, दो: 2, तीन: 3, चार: 4, पांच: 5, पाँच: 5, छह: 6, सात: 7, आठ: 8, नौ: 9,
   दस: 10, ग्यारह: 11, बारह: 12, तेरह: 13, चौदह: 14, पंद्रह: 15, सोलह: 16, सत्रह: 17,
   अठारह: 18, उन्नीस: 19, बीस: 20, तीस: 30, चालीस: 40, पचास: 50, साठ: 60, सत्तर: 70,
-  अस्सी: 80, नब्बे: 90, सौ: 100, हज़ार: 1000, हजार: 1000, लाख: 100000,
+  अस्सी: 80, नब्बे: 90, सौ: 100, हज़ार: 1000, हजार: 1000, हजारों: 1000,
+  लाख: 100000, लाखों: 100000, करोड़: 10000000, करोड़ों: 10000000,
   // Telugu
   ఒక: 1, ఒకటి: 1, రెండు: 2, మూడు: 3, నాలుగు: 4, ఐదు: 5, ఆరు: 6, ఏడు: 7, ఎనిమిది: 8, తొమ్మిది: 9,
   పది: 10, పదకొండు: 11, పన్నెండు: 12, పదమూడు: 13, పద్నాలుగు: 14, పదిహేను: 15, పదహారు: 16,
   పదిహేడు: 17, పద్దెనిమిది: 18, పంతొమ్మిది: 19, ఇరవై: 20, ముప్పై: 30, నలభై: 40, యాభై: 50,
   అరవై: 60, డెబ్బై: 70, ఎనభై: 80, తొంభై: 90,
-  వంద: 100, వందలు: 100, వేలు: 1000, వేయి: 1000, లక్ష: 100000,
+  వంద: 100, వందలు: 100, వందల: 100, వేలు: 1000, వేయి: 1000, వేల: 1000,
+  లక్ష: 100000, లక్షలు: 100000, లక్షల: 100000, కోటి: 10000000, కోట్లు: 10000000,
 };
 
 const SCALE_WORDS = [
-  'hundred', 'thousand', 'thousands', 'lakh', 'lakhs',
-  'सौ', 'हज़ार', 'हजार', 'लाख',
-  'వంద', 'వందలు', 'వేలు', 'వేయి', 'లక్ష',
+  'hundred', 'thousand', 'thousands', 'lakh', 'lakhs', 'crore', 'crores', 'k',
+  'सौ', 'हज़ार', 'हजार', 'हजारों', 'लाख', 'लाखों', 'करोड़', 'करोड़ों',
+  'వంద', 'వందలు', 'వందల', 'వేలు', 'వేయి', 'వేల', 'లక్ష', 'లక్షలు', 'లక్షల', 'కోటి', 'కోట్లు',
 ];
 
 // Words that strongly indicate an adjacent number is the transaction amount.
 const CURRENCY_KEYWORDS = [
-  'rupees', 'rupee', 'rs', 'total', 'for', 'spent', 'paid', 'cost', 'bill', 'price', 'profit', 'income', 'expense',
-  'రూపాయలు', 'రూపాయి', 'రూ', 'మొత్తం', 'ఖర్చు', 'ఖరీదు', 'చెల్లించిన', 'వచ్చింది', 'ఆదాయం',
-  'रुपये', 'रुपया', 'रु', 'कुल', 'खर्च', 'कीमत', 'दिए', 'दिया', 'आमदनी', 'मिले', 'पैसे',
+  'rupees', 'rupee', 'rs', 'inr', 'total', 'for', 'spent', 'paid', 'cost', 'bill', 'price', 'profit', 'income', 'expense', 'sales', 'sale', 'add', 'added',
+  'రూపాయలు', 'రూపాయల', 'రూపాయలకు', 'రూపాయి', 'రూ', 'మొత్తం', 'ఖర్చు', 'ఖర్చులు', 'ఖర్చుకు', 'ఖరీదు', 'చెల్లించిన', 'చెల్లించాను', 'వచ్చింది', 'వచ్చాయి', 'వచ్చిన', 'ఆదాయం', 'సేల్స్', 'సేల్స్లో', 'అమ్మకం', 'అమ్మాను', 'యాడ్', 'ఆడ్', 'జోడించు', 'ఖాతా', 'ఖాతాలో',
+  'रुपये', 'रुपया', 'रुपयों', 'रु', 'कुल', 'खर्च', 'कीमत', 'दिए', 'दिया', 'आमदनी', 'मिले', 'पैसे', 'बिक्री', 'बेचा', 'जोड़ें', 'जोड़ो', 'खाता', 'खाते',
 ];
 
 const UNIT_WORDS = [
@@ -434,22 +437,23 @@ interface AmountCandidate {
  * This covers cases like "60 rupees per litre, sold 20 litres" → 1200. */
 function tryComputeUnitPrice(lower: string): number | null {
   const unitList = UNIT_WORDS.join('|');
-  const currency = '(?:rupees|rupee|rs|రూపాయలు|రూపాయి|రూ|रुपये|रुपया|रु)?';
+  const currency = '(?:rupees|rupee|rs|రూపాయలు|రూపాయల|రూపాయలకు|రూపాయి|రూ|रुपये|रुपया|रुपयों|रु)?';
   const per = '(?:per|ప్రతి|प्रति)';
+  const numPattern = '(?:\\d{1,3}(?:,\\d{2,3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
   const perMatch = lower.match(
-    new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${currency}\\s*${per}\\s*(${unitList})`)
+    new RegExp(`(${numPattern})\\s*${currency}\\s*${per}\\s*(${unitList})`)
   );
   if (!perMatch) return null;
 
-  const price = parseFloat(perMatch[1]);
+  const price = parseFloat(perMatch[1].replace(/,/g, ''));
   const unitWord = perMatch[2];
 
   // Find a separate quantity near the same unit word elsewhere in the text.
-  const unitRegex = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${unitWord}`, 'g');
+  const unitRegex = new RegExp(`(${numPattern})\\s*${unitWord}`, 'g');
   let mm: RegExpExecArray | null;
   const quantities: number[] = [];
   while ((mm = unitRegex.exec(lower)) !== null) {
-    const qty = parseFloat(mm[1]);
+    const qty = parseFloat(mm[1].replace(/,/g, ''));
     if (qty !== price) quantities.push(qty);
   }
 
@@ -467,16 +471,18 @@ interface ResolvedAmount {
 
 /**
  * Extracts the transaction amount from a spoken/typed transcript:
- * 1. Prefers numbers adjacent to currency/total keywords.
- * 2. Handles spoken number words ("five hundred", "पाँच सौ", "రెండు వేలు").
- * 3. Handles "price per unit" sentences ("60 rupees per litre, sold 20 litres").
- * 4. Falls back to the largest number when nothing better is available.
+ * 1. Matches formatted numbers (e.g. "50,000", "1,00,000") and plain numbers ("50000").
+ * 2. Prefers numbers adjacent to currency/total/action keywords.
+ * 3. Handles spoken number words ("five hundred", "पाँच सौ", "రెండు వేలు", "యాభై వేలు").
+ * 4. Handles "price per unit" sentences ("60 rupees per litre, sold 20 litres").
+ * 5. Falls back to the largest number when nothing better is available.
  */
 function resolveAmount(transcript: string): ResolvedAmount {
   const lower = transcript.toLowerCase().trim();
   if (!lower) return { isAmbiguous: false };
 
-  const tokenPattern = /\d+(?:\.\d+)?|[^\s.,₹-]+/g;
+  // Regex captures formatted Indian/Western numbers (e.g. 50,000 or 1,00,000) or plain numbers or words
+  const tokenPattern = /\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?|[^\s.,₹-]+/g;
   const tokens: { text: string; start: number }[] = [];
   let m: RegExpExecArray | null;
   while ((m = tokenPattern.exec(lower)) !== null) {
@@ -489,15 +495,25 @@ function resolveAmount(transcript: string): ResolvedAmount {
   let i = 0;
   while (i < tokens.length) {
     const tok = tokens[i];
+    const cleanNumStr = tok.text.replace(/,/g, '');
 
-    if (/^\d+(?:\.\d+)?$/.test(tok.text)) {
-      const value = parseFloat(tok.text);
+    if (/^\d+(?:\.\d+)?$/.test(cleanNumStr)) {
+      const value = parseFloat(cleanNumStr);
       let amount = value;
       let endIdx = i;
-      // "20 thousand" → 20000
+      // "20 thousand" → 20000, "1.5 lakh" → 150000, "50 వేలు" → 50000
       if (i + 1 < tokens.length && SCALE_WORDS.includes(tokens[i + 1].text)) {
-        amount = value * NUMBER_WORDS[tokens[i + 1].text];
-        endIdx = i + 1;
+        const scaleMultiplier = NUMBER_WORDS[tokens[i + 1].text] || 1;
+        if (scaleMultiplier >= 100000) {
+          amount = value * scaleMultiplier;
+          endIdx = i + 1;
+        } else if (scaleMultiplier >= 1000 && value < 1000) {
+          amount = value * scaleMultiplier;
+          endIdx = i + 1;
+        } else if (scaleMultiplier === 100 && value < 100) {
+          amount = value * scaleMultiplier;
+          endIdx = i + 1;
+        }
       }
       candidates.push({
         value: amount,
@@ -559,9 +575,122 @@ function resolveAmount(transcript: string): ResolvedAmount {
 }
 
 /**
- * Intelligent parser to extract amount, type, category, and note from spoken English or Telugu phrases.
- * Example: "Sold milk for 1500 rupees" -> amount: 1500, type: 'income', category: 'Sales'
- * Example: "ఖర్చు 500 దాణా కోసం" -> amount: 500, type: 'expense', category: 'Feed / Supplies'
+ * Cleans spoken command residue from the note field so that pure structured
+ * commands (e.g. "Add 50000 to sales", "50,000 సేల్స్ ఖాతాలో ఆడ్ చేయి", "50000 बिक्री खाते में जोड़ें")
+ * produce an empty note, while preserving meaningful contextual descriptions (e.g.
+ * "Today's milk delivery", "మేత కొనుగోలు", "Sold 20 litres milk", "ట్రాక్టర్ డీజిల్").
+ */
+export function extractCleanNote(transcript: string, resolvedAmount?: number): string {
+  if (!transcript || !transcript.trim()) return '';
+
+  let cleaned = transcript.trim();
+
+  // 1. Remove currency symbols & signs
+  cleaned = cleaned.replace(/[₹$€£]/g, ' ');
+
+  // 2. Remove currency words (using Unicode boundary safe replacements)
+  const currencyWords = [
+    'rs', 'rs.', 'inr', 'rupees', 'rupee',
+    'రూపాయలు', 'రూపాయల', 'రూపాయలకు', 'రూపాయి', 'రూ',
+    'रुपये', 'रुपया', 'रुपयों', 'रु', 'पैसे', '/-',
+  ];
+  for (const cw of currencyWords) {
+    const r = new RegExp(`(^|\\s|[.,!?;:])(${cw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})($|\\s|[.,!?;:])`, 'gi');
+    cleaned = cleaned.replace(r, ' ');
+  }
+
+  // 3. Remove number + scale combinations (e.g. "50 వేలు", "1.5 lakh", "20 thousand")
+  const scaleWordsList = [
+    'hundred', 'thousand', 'thousands', 'lakh', 'lakhs', 'crore', 'crores', 'k',
+    'వంద', 'వందలు', 'వందల', 'వేలు', 'వేయి', 'వేల', 'లక్ష', 'లక్షలు', 'లక్షల', 'కోటి', 'కోట్లు',
+    'सौ', 'हज़ार', 'हजार', 'हजारों', 'लाख', 'लाखों', 'करोड़', 'करोड़ों',
+  ];
+  for (const sw of scaleWordsList) {
+    const esc = sw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const r = new RegExp(`(^|\\s|[.,!?;:])\\d+(?:\\.\\d+)?\\s*${esc}($|\\s|[.,!?;:])`, 'gi');
+    cleaned = cleaned.replace(r, ' ');
+  }
+
+  // 4. Remove the transaction amount (if resolved, remove that specific amount and formatted variants;
+  // otherwise remove numbers adjacent to currency/command or standalone amounts)
+  if (resolvedAmount !== undefined && resolvedAmount !== null) {
+    const amtStr = resolvedAmount.toString();
+    const inFmt = resolvedAmount.toLocaleString('en-IN');
+    const usFmt = resolvedAmount.toLocaleString('en-US');
+    const patterns = Array.from(new Set([amtStr, inFmt, usFmt]));
+    for (const p of patterns) {
+      const r = new RegExp(`(^|\\s|[.,!?;:])(${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})($|\\s|[.,!?;:])`, 'gi');
+      cleaned = cleaned.replace(r, ' ');
+    }
+  } else {
+    cleaned = cleaned.replace(/\b\d{1,3}(?:,\d{2,3})+(?:\.\d+)?\b/g, ' ');
+    cleaned = cleaned.replace(/\b\d+(?:\.\d+)?\b/g, ' ');
+  }
+
+  // 5. Remove all spoken number words & scale words
+  const allNumberWords = [
+    // English
+    'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen',
+    'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety',
+    'hundred', 'thousand', 'thousands', 'lakh', 'lakhs', 'crore', 'crores', 'k',
+    // Telugu
+    'ఒక', 'ఒకటి', 'రెండు', 'మూడు', 'నాలుగు', 'ఐదు', 'ఆరు', 'ఏడు', 'ఎనిమిది', 'తొమ్మిది',
+    'పది', 'పదకొండు', 'పన్నెండు', 'పదమూడు', 'పద్నాలుగు', 'పదిహేను', 'పదహారు', 'పదిహేడు', 'పద్దెనిమిది', 'పంతొమ్మిది',
+    'ఇరవై', 'ముప్పై', 'నలభై', 'యాభై', 'అరవై', 'డెబ్బై', 'ఎనభై', 'తొంభై',
+    'వంద', 'వందలు', 'వందల', 'వేలు', 'వేయి', 'వేల', 'లక్ష', 'లక్షలు', 'లక్షల', 'కోటి', 'కోట్లు',
+    // Hindi
+    'एक', 'दो', 'तीन', 'चार', 'पांच', 'पाँच', 'छह', 'सात', 'आठ', 'नौ',
+    'दस', 'ग्यारह', 'बारह', 'तेरह', 'चौदह', 'पंद्रह', 'सोलह', 'सत्रह', 'अठारह', 'उन्नीस',
+    'बीस', 'तीस', 'चालीस', 'पचास', 'साठ', 'सत्तर', 'अस्सी', 'नब्बे',
+    'सौ', 'हज़ार', 'हजार', 'हजारों', 'लाख', 'लाखों', 'करोड़', 'करोड़ों',
+  ];
+
+  for (const nw of allNumberWords) {
+    const r = new RegExp(`(^|\\s|[.,!?;:])(${nw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})($|\\s|[.,!?;:])`, 'gi');
+    cleaned = cleaned.replace(r, ' ');
+  }
+
+  // 5. Remove generic command verbs, directional prepositions, and standard category bucket words
+  const commandWords = [
+    // English command keywords
+    'add', 'added', 'enter', 'entered', 'record', 'recorded', 'put', 'save', 'saved',
+    'insert', 'inserted', 'log', 'logged', 'credit', 'credited', 'debit', 'debited',
+    'to', 'in', 'into', 'in the', 'for', 'of', 'on', 'please', 'account', 'khata', 'entry',
+    'income', 'expense', 'expenses', 'sales', 'sale', 'dairy', 'cooperative', 'total', 'bill', 'cost',
+    // Telugu command keywords
+    'ఆడ్', 'యాడ్', 'చేయి', 'చేయండి', 'జోడించు', 'జోడించండి', 'నమోదు', 'నమోదు చేయి', 'నమోదుచేయి',
+    'రాయి', 'రాయండి', 'వేయి', 'వేయండి', 'పెట్టు', 'కలపండి', 'ఖాతాలో', 'ఖాతా', 'ఖాతాకు',
+    'లో', 'కి', 'కోసం', 'దయచేసి', 'సేల్స్', 'సేల్స్లో', 'సేల్స్‌', 'డైరీ', 'సహకార', 'అమ్మకం', 'అమ్మకాలు',
+    'ఆదాయం', 'ఖర్చు', 'ఖర్చులు', 'వ్యయం', 'మొత్తం', 'బిల్లు',
+    // Hindi command keywords
+    'जोड़ें', 'जोड़ो', 'ऐड', 'करो', 'कीजिए', 'डालो', 'दर्ज', 'करें', 'लिखो',
+    'खाते', 'खाता', 'में', 'के लिए', 'कृपया', 'सेल्स', 'डेयरी', 'बिक्री', 'आमदनी', 'खर्च', 'खर्चे',
+    'कुल', 'राशि', 'बिल',
+  ];
+
+  for (const cw of commandWords) {
+    const r = new RegExp(`(^|\\s|[.,!?;:])(${cw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})($|\\s|[.,!?;:])`, 'gi');
+    cleaned = cleaned.replace(r, ' ');
+  }
+
+  // 6. Clean leading/trailing punctuation except apostrophes in words like today's
+  cleaned = cleaned.replace(/(^|\s)[.,/#!$%^&*;:{}=\-_`~()?"\\]+|[.,/#!$%^&*;:{}=\-_`~()?"\\]+(\s|$)/g, ' ');
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+  // If empty or only a 1-character stray punctuation
+  if (cleaned.length <= 1) {
+    return '';
+  }
+
+  // Capitalize first character if Latin script
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+/**
+ * Intelligent parser to extract amount, type, category, and note from spoken English, Telugu, or Hindi phrases.
+ * Example: "Sold milk for 1500 rupees" -> amount: 1500, type: 'income', category: 'Sales', note: 'Sold milk'
+ * Example: "50,000 సేల్స్ ఖాతాలో ఆడ్ చేయి" -> amount: 50000, type: 'income', category: 'Sales', note: ''
  */
 export function parseSpokenTransaction(transcript: string): SpokenTransactionResult {
   const lower = transcript.toLowerCase();
@@ -574,10 +703,10 @@ export function parseSpokenTransaction(transcript: string): SpokenTransactionRes
     'expense', 'spent', 'bought', 'purchase', 'feed', 'fertilizer', 'diesel', 'petrol',
     'seeds', 'transport', 'rent', 'labor', 'wages', 'medicine', 'vet', 'cost',
     'paid', 'bill', 'electricity', 'power',
-    'ఖర్చు', 'కొనుగోలు', 'దాణా', 'ఎరువులు', 'విత్తనాలు', 'డీజిల్', 'రవాణా', 'కూలీ',
-    'మందులు', 'అద్దె', 'వ్యయం', 'కరెంట్', 'బిల్లు', 'చెల్లించిన',
-    'खर्च', 'खरीदा', 'चारा', 'खाद', 'बीज', 'डीजल', 'किराया', 'मजदूरी', 'दवाई',
-    'दिया', 'दिए', 'बिजली', 'बिल',
+    'ఖర్చు', 'కొనుగోలు', 'కొన్నాను', 'దాణా', 'మేత', 'సరుకులు', 'ఎరువులు', 'విత్తనాలు', 'డీజిల్', 'రవాణా', 'కూలీ',
+    'మందులు', 'అద్దె', 'వ్యయం', 'కరెంట్', 'బిల్లు', 'చెల్లించిన', 'చెల్లించాను',
+    'खर्च', 'खरीदा', 'खरीदी', 'चारा', 'सामान', 'खाद', 'बीज', 'डीजल', 'किराया', 'मजदूरी', 'दवाई',
+    'दिया', 'दिए', 'भुगतान', 'बिजली', 'बिल',
   ];
 
   const hasExpenseKeyword = expenseKeywords.some((kw) => lower.includes(kw));
@@ -587,7 +716,8 @@ export function parseSpokenTransaction(transcript: string): SpokenTransactionRes
     // several things doesn't always collapse to the generic "Feed / Supplies".
     if (
       lower.includes('vet') || lower.includes('medicine') ||
-      lower.includes('మందులు') || lower.includes('दवाई')
+      lower.includes('మందులు') || lower.includes('డాక్టర్') ||
+      lower.includes('दवाई') || lower.includes('डॉक्टर')
     ) {
       category = 'Veterinary';
     } else if (
@@ -597,7 +727,7 @@ export function parseSpokenTransaction(transcript: string): SpokenTransactionRes
       category = 'Raw Material';
     } else if (
       lower.includes('labor') || lower.includes('wage') ||
-      lower.includes('కూలీ') || lower.includes('मजदूरी')
+      lower.includes('కూలీ') || lower.includes('మజదూరి') || lower.includes('मजदूरी')
     ) {
       category = 'Wages';
     } else if (
@@ -625,12 +755,13 @@ export function parseSpokenTransaction(transcript: string): SpokenTransactionRes
   }
 
   const resolved = resolveAmount(transcript);
+  const cleanNote = extractCleanNote(transcript, resolved.amount);
 
   return {
     amount: resolved.amount,
     type,
     category,
-    note: transcript,
+    note: cleanNote,
     isAmbiguous: resolved.isAmbiguous,
     confidence: resolved.amount ? 0.95 : 0.75,
     parseMessage: !resolved.amount
@@ -666,7 +797,7 @@ export async function parseSpokenTransactionWithFallback(
           amount: extracted.amount,
           type: extracted.type === 'expense' ? 'expense' : 'income',
           category: extracted.category || localParsed.category || 'Sales',
-          note: extracted.note || transcript,
+          note: extracted.note !== undefined && extracted.note !== null ? extracted.note : localParsed.note,
           confidence: 0.9,
           parseMessage: undefined,
         };
