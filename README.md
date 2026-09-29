@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="docs/sih-logo.png" alt="Smart India Hackathon" width="300" />
+</p>
+
+<p align="center">
   <h1 align="center">🌾 RuralCred Advisor</h1>
   <p align="center"><strong>AI-Driven Hyper-Local Business Advisory & Financial Structuring for Rural Micro-Entrepreneurs</strong></p>
   <p align="center"><em>Turning informal, instinct-run rural businesses into credit-ready, data-backed enterprises — in their own language, by voice.</em></p>
@@ -104,38 +108,33 @@ One system for both halves of the loop — built for low literacy, vernacular-fi
 
 ```mermaid
 flowchart TB
-    subgraph UI["🖥️ Experience"]
-        U["Rural entrepreneur<br/>voice · text · Telugu · English"] --> FE["Next.js + React<br/>UI · charts · speech"]
-    end
-    subgraph SVC["⚙️ FastAPI Backend"]
-        BE["REST API layer"] --> FIN["Finance Engine<br/>100% deterministic"]
-        BE --> RSK["Risk Engine<br/>rules 1 · 2 · 3"]
-        BE --> API["App APIs<br/>profile · logbook · dashboard"]
-    end
-    subgraph AI["🧠 Grounded Intelligence"]
-        CDB[("ChromaDB<br/>ruralcred_knowledge")] --> NEMO["NVIDIA Nemotron 3 Ultra<br/>grounded generation"]
-        LOC["Local datasets<br/>mandi · schemes · districts"] --> NEMO
-    end
-    FE <--> BE
-    BE --> CDB
-    NEMO --> ANS["Grounded answer<br/>+ deterministic numbers"]
+    U(["🗣️ Rural Entrepreneur<br/>voice · text · Telugu · English"]) --> FE["📱 Next.js Frontend<br/>UI · charts · speech"]
+    FE <--> BE["⚙️ FastAPI Backend<br/>REST API layer"]
+    BE --> FIN["🧮 Finance Engine<br/>deterministic formulas"]
+    BE --> RSK["🛡️ Risk Engine<br/>rules 1 · 2 · 3"]
+    BE --> CDB[("🗄️ ChromaDB<br/>ruralcred_knowledge")]
+    CDB --> NEMO["🤖 NVIDIA Nemotron 3 Ultra<br/>grounded generation"]
+    FIN -.->|"verified numbers"| ANS
+    RSK -.-> ANS
+    NEMO --> ANS["✨ Grounded Answer<br/>advice + deterministic numbers"]
     ANS --> FE
-    ANS --> FS[("Firestore<br/>user-isolated")]
-    ANS --> AU["Supabase Auth<br/>identity"]
+    ANS --> FS[("🔥 Firestore<br/>user-isolated")]
+    ANS --> AU["🔐 Supabase Auth<br/>identity"]
 
-    classDef gold fill:#E3A857,stroke:#1B2A4A,color:#12141C
-    classDef navy fill:#1B2A4A,stroke:#E3A857,color:#FFFFFF
-    classDef green fill:#2F8F5B,stroke:#1B2A4A,color:#FFFFFF
-    classDef ink fill:#12141C,stroke:#E3A857,color:#FFFFFF
-    classDef light fill:#F7F8FA,stroke:#1B2A4A,color:#12141C
-    classDef nvidia fill:#76B900,stroke:#1B2A4A,color:#12141C
+    classDef navy fill:#1B2A4A,stroke:#E3A857,stroke-width:2px,color:#fff
+    classDef gold fill:#E3A857,stroke:#1B2A4A,stroke-width:2px,color:#12141C
+    classDef green fill:#2F8F5B,stroke:#1B2A4A,stroke-width:2px,color:#fff
+    classDef ink fill:#12141C,stroke:#E3A857,stroke-width:2px,color:#fff
+    classDef light fill:#F7F8FA,stroke:#1B2A4A,stroke-width:2px,color:#12141C
+    classDef nvidia fill:#76B900,stroke:#1B2A4A,stroke-width:2px,color:#12141C
 
     class U,FE navy
-    class BE,API light
+    class BE light
     class FIN,RSK green
-    class CDB,LOC light
+    class CDB light
     class NEMO nvidia
-    class ANS,FS,AU ink
+    class ANS gold
+    class FS,AU ink
 ```
 
 **One-line data flow:** question → context → embedding → ChromaDB retrieval → grounded context → Nemotron 3 Ultra → answer — with every financial number supplied by the deterministic engines, never the model.
