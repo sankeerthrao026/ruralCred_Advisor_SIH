@@ -2,9 +2,17 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { formatINR } from '@/lib/utils/currency';
 import { Button } from '@/components/ui/button';
 import { AnimatedNumber } from '@/components/ui/animated-number';
+import {
+  saveConversationMetadata,
+  saveMessage,
+  fetchMessages,
+  StoredMessage,
+} from '@/lib/firebase/conversations';
+import { ConversationHistoryModal } from '@/components/ai/ConversationHistoryModal';
 import {
   FinanceAdviceResponse,
   TailoredSchemeRecommendation,
@@ -51,6 +59,7 @@ import {
   Check,
   Star,
   ExternalLink,
+  Plus,
 } from 'lucide-react';
 
 export interface AdvisorChatMessage {
@@ -76,9 +85,14 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
     totalExpenses,
     netCashFlow,
     healthScore,
+    selectedSchemeId,
+    setSelectedSchemeId,
   } = useApp();
   const t = dictionary.finance;
   const isTe = language === 'te';
+
+  // Secondary deep-dive tabs (Bug #5)
+  const [deepDiveTab, setDeepDiveTab] = useState<'amortization' | 'working_capital' | 'moratorium'>('amortization');
 
   // Demographic state (synced with profile or interactive selector)
   const [selectedGender, setSelectedGender] = useState<string>(
@@ -103,14 +117,12 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
     });
   }, [finance.loanAmount, profile.category, selectedGender, selectedSocialCategory]);
 
-  const [selectedSchemeId, setSelectedSchemeId] = useState<string>('');
-
   useEffect(() => {
     if (!selectedSchemeId || !allCalculatedSchemes.some((s) => s.schemeId === selectedSchemeId)) {
       const topMatch = allCalculatedSchemes.find((s) => s.isTopMatch) || allCalculatedSchemes[0];
       if (topMatch) setSelectedSchemeId(topMatch.schemeId);
     }
-  }, [allCalculatedSchemes, selectedSchemeId]);
+  }, [allCalculatedSchemes, selectedSchemeId, setSelectedSchemeId]);
 
   const activeScheme = allCalculatedSchemes.find((s) => s.schemeId === selectedSchemeId) || allCalculatedSchemes[0];
 
@@ -118,8 +130,12 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
   const [adviceData, setAdviceData] = useState<FinanceAdviceResponse | null>(null);
   const [isAdviceLoading, setIsAdviceLoading] = useState<boolean>(false);
 
-  // Chat conversation state
+  // Chat conversation state & persistence
+  const { user } = useAuth();
+  const userId = user?.id || 'demo-user';
   const [messages, setMessages] = useState<AdvisorChatMessage[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [inputText, setInputText] = useState<string>('');
   const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -127,6 +143,29 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceControllerRef = useRef<SpeechController | null>(null);
+
+  const handleNewConversation = () => {
+    const newId = `conv-fin-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    setActiveConversationId(newId);
+    setMessages([]);
+  };
+
+  const handleSelectConversation = async (convId: string) => {
+    setActiveConversationId(convId);
+    try {
+      const stored = await fetchMessages(userId, convId);
+      const mapped: AdvisorChatMessage[] = stored.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: formatTime(new Date(m.timestamp)),
+        isError: m.isError,
+      }));
+      setMessages(mapped);
+    } catch (e) {
+      console.warn('Failed to load conversation messages:', e);
+    }
+  };
 
   // Abort any active voice session when the screen unmounts so the microphone
   // is never left running in the background.
@@ -235,6 +274,13 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
 
     setInputText('');
 
+    let convId = activeConversationId;
+    const isNewConv = !convId;
+    if (!convId) {
+      convId = `conv-fin-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      setActiveConversationId(convId);
+    }
+
     const userMsg: AdvisorChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -245,6 +291,31 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
     const updated = [...messages, userMsg];
     setMessages(updated);
     setIsChatLoading(true);
+
+    // Persist user message
+    if (userId) {
+      await saveMessage(
+        userId,
+        convId,
+        {
+          id: userMsg.id,
+          role: 'user',
+          content: query,
+          timestamp: Date.now(),
+          language,
+        },
+        {
+          id: convId,
+          advisorType: 'finance',
+          title: isNewConv || messages.length <= 1 ? query.substring(0, 45) : undefined,
+          createdAt: isNewConv ? Date.now() : undefined,
+          updatedAt: Date.now(),
+          language,
+          messageCount: updated.length,
+          lastSnippet: query.substring(0, 80),
+        }
+      );
+    }
 
     try {
       const historyPayload = updated.map((m) => ({
@@ -302,6 +373,28 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+
+      // Persist assistant message
+      if (userId && convId) {
+        await saveMessage(
+          userId,
+          convId,
+          {
+            id: aiMsg.id,
+            role: 'assistant',
+            content: data.reply,
+            timestamp: Date.now(),
+            language,
+          },
+          {
+            id: convId,
+            advisorType: 'finance',
+            updatedAt: Date.now(),
+            messageCount: updated.length + 1,
+            lastSnippet: data.reply.substring(0, 80),
+          }
+        );
+      }
     } catch (err: any) {
       console.error('Follow-up error:', err);
       const errMsg: AdvisorChatMessage = {
@@ -630,10 +723,30 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
                 </div>
               </div>
 
-              <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1.5">
-                <MessageSquare className="size-3.5" />
-                <span>{messages.length} {isTe ? 'సందేశాలు' : 'Turns'}</span>
-              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHistoryModal(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
+                >
+                  <Clock className="size-3.5 text-primary" />
+                  <span>{isTe ? 'చరిత్ర' : 'History'}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNewConversation}
+                  className="flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
+                >
+                  <Plus className="size-3.5" />
+                  <span>{isTe ? 'కొత్తది' : 'New Chat'}</span>
+                </Button>
+                <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1.5 ml-1">
+                  <MessageSquare className="size-3.5" />
+                  <span>{messages.length} {isTe ? 'సందేశాలు' : 'Turns'}</span>
+                </span>
+              </div>
             </div>
 
             {/* Chat message thread */}
@@ -893,519 +1006,422 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
         </div>
       </div>
 
-      {/* 4. Working Capital vs. Capital Expenditure (Capex) Breakdown */}
-      <section className="rounded-2xl border bg-card p-5 sm:p-6 shadow-xs hover-lift">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-500/10 text-teal-800 dark:text-teal-300">
-                <Sliders className="size-3" />
-                {isTe ? 'రుణ విభజన విశ్లేషణ' : 'Working Capital vs. Capex Breakdown'}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {isTe ? 'బ్యాంకర్ల కోసం స్పష్టమైన కేటాయింపు' : 'Crucial distinction for institutional lenders'}
-              </span>
-            </div>
-            <h3 className="mt-1 text-base font-semibold font-sora">
-              {isTe ? 'నిర్వహణ మూలధనం మరియు స్థిర ఆస్తుల నిష్పత్తి' : 'Operational Liquidity vs. Fixed Asset Acquisition'}
-            </h3>
-          </div>
+      {/* ========================================================================= */}
+      {/* 4. MODULAR FINANCIAL DEEP-DIVES (Tabbed Sub-Sections)                      */}
+      {/* ========================================================================= */}
+      <div className="flex flex-col gap-4">
+        {/* Secondary Deep-Dive Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b pb-2 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setDeepDiveTab('amortization')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              deepDiveTab === 'amortization'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+            }`}
+          >
+            <Calendar className="size-3.5" />
+            <span>{isTe ? 'వాయిదాల షెడ్యూల్ (Amortization)' : 'Amortization Schedule'}</span>
+          </button>
 
-          {/* Quick Preset Buttons */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground hidden sm:inline mr-1">{isTe ? 'ప్రిసెట్‌లు:' : 'Presets:'}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCustomWcRatio(null)}
-              className={`h-7 text-[11px] px-2.5 ${customWcRatio === null ? 'border-primary text-primary font-bold' : ''}`}
+          <button
+            type="button"
+            onClick={() => setDeepDiveTab('working_capital')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              deepDiveTab === 'working_capital'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+            }`}
+          >
+            <Sliders className="size-3.5" />
+            <span>{isTe ? 'వర్కింగ్ క్యాపిటల్ vs కేపెక్స్' : 'Working Capital vs Capex'}</span>
+          </button>
+
+          {seasonalAdvice && seasonalAdvice.isSeasonal && (
+            <button
+              type="button"
+              onClick={() => setDeepDiveTab('moratorium')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                deepDiveTab === 'moratorium'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+              }`}
             >
-              {isTe ? 'సిఫార్సు చేసినది' : 'Recommended'}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCustomWcRatio(0.5)}
-              className={`h-7 text-[11px] px-2.5 ${customWcRatio === 0.5 ? 'border-primary text-primary font-bold' : ''}`}
-            >
-              50 / 50
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCustomWcRatio(0.7)}
-              className={`h-7 text-[11px] px-2.5 ${customWcRatio === 0.7 ? 'border-primary text-primary font-bold' : ''}`}
-            >
-              70% WC
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCustomWcRatio(0.3)}
-              className={`h-7 text-[11px] px-2.5 ${customWcRatio === 0.3 ? 'border-primary text-primary font-bold' : ''}`}
-            >
-              70% Capex
-            </Button>
-          </div>
+              <Clock className="size-3.5" />
+              <span>{isTe ? 'కాలానుగుణ మారటోరియం' : 'Seasonal Moratorium'}</span>
+            </button>
+          )}
         </div>
 
-        {/* Visual Split Bar */}
-        <div className="mt-4 space-y-2">
-          <div className="h-4 w-full rounded-full bg-muted overflow-hidden flex shadow-inner">
-            <div
-              className="h-full bg-teal-600 transition-all duration-700 flex items-center justify-center text-[10px] text-white font-bold"
-              style={{ width: `${wcBreakdown.workingCapitalPercent}%` }}
-              title={`Working Capital: ${formatINR(wcBreakdown.workingCapitalAmount)}`}
-            >
-              {wcBreakdown.workingCapitalPercent >= 20 ? `${wcBreakdown.workingCapitalPercent}%` : ''}
-            </div>
-            <div
-              className="h-full bg-violet-600 transition-all duration-700 flex items-center justify-center text-[10px] text-white font-bold"
-              style={{ width: `${wcBreakdown.capexPercent}%` }}
-              title={`Capex: ${formatINR(wcBreakdown.capexAmount)}`}
-            >
-              {wcBreakdown.capexPercent >= 20 ? `${wcBreakdown.capexPercent}%` : ''}
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-teal-600" />
-              <span>
-                {isTe ? 'వర్కింగ్ క్యాపిటల్ (రోజువారీ నిర్వహణ): ' : 'Working Capital (Operating): '}
-                <strong className="text-foreground">{formatINR(wcBreakdown.workingCapitalAmount)}</strong> ({wcBreakdown.workingCapitalPercent}%)
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-violet-600" />
-              <span>
-                {isTe ? 'కేపెక్స్ (యంత్రాలు / పరికరాలు): ' : 'Capex (Equipment/Assets): '}
-                <strong className="text-foreground">{formatINR(wcBreakdown.capexAmount)}</strong> ({wcBreakdown.capexPercent}%)
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Slider control */}
-        <div className="mt-4 pt-3 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3 flex-1">
-            <span className="text-muted-foreground shrink-0 font-medium">
-              {isTe ? 'నిష్పత్తి సర్దుబాటు:' : 'Adjust Allocation:'}
-            </span>
-            <input
-              type="range"
-              min="10"
-              max="90"
-              step="5"
-              value={wcBreakdown.workingCapitalPercent}
-              onChange={(e) => setCustomWcRatio(Number(e.target.value) / 100)}
-              className="w-full max-w-xs accent-primary cursor-pointer"
-            />
-            <span className="font-mono font-bold text-foreground shrink-0">
-              {wcBreakdown.workingCapitalPercent}% WC / {wcBreakdown.capexPercent}% Capex
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full font-medium">
-            <CheckCircle2 className="size-3.5" />
-            <span>
-              {formatINR(wcBreakdown.workingCapitalAmount)} + {formatINR(wcBreakdown.capexAmount)} = {formatINR(finance.loanAmount)} (100%)
-            </span>
-          </div>
-        </div>
-
-        {/* Itemized usage cards */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Working Capital Card */}
-          <div className="rounded-xl border border-teal-200 dark:border-teal-900 bg-teal-50/40 dark:bg-teal-950/20 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
-                <Wallet className="size-3.5" />
-                {isTe ? 'వర్కింగ్ క్యాపిటల్ దేనికి ఉపయోగపడుతుంది?' : 'What Working Capital Funds'}
-              </span>
-              <span className="text-xs font-mono font-bold text-teal-800 dark:text-teal-300">
-                {formatINR(wcBreakdown.workingCapitalAmount)}
-              </span>
-            </div>
-            <ul className="mt-2.5 space-y-1.5 text-xs text-muted-foreground">
-              {wcBreakdown.workingCapitalUses.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-teal-800 dark:text-teal-300 font-bold">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Capex Card */}
-          <div className="rounded-xl border border-violet-200 dark:border-violet-900 bg-violet-50/40 dark:bg-violet-950/20 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
-                <Briefcase className="size-3.5" />
-                {isTe ? 'కేపెక్స్ మూలధనం దేనికి ఉపయోగపడుతుంది?' : 'What Capital Expenditure Funds'}
-              </span>
-              <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300">
-                {formatINR(wcBreakdown.capexAmount)}
-              </span>
-            </div>
-            <ul className="mt-2.5 space-y-1.5 text-xs text-muted-foreground">
-              {wcBreakdown.capexUses.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-violet-700 dark:text-violet-300 font-bold">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Seasonal Repayment Moratorium Advisory */}
-      {seasonalAdvice && seasonalAdvice.isSeasonal && (
-        <section className="rounded-2xl border border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 p-5 sm:p-6 shadow-xs hover-lift">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="size-9 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
-                <Calendar className="size-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-amber-500 text-white">
-                    {isTe ? 'కాలానుగుణ మారటోరియం సిఫార్సు' : 'Seasonal Moratorium Strategy'}
-                  </span>
-                  <span className="text-xs font-semibold text-amber-950 dark:text-amber-200">
-                    {seasonalAdvice.businessType}
-                  </span>
-                </div>
-                <h3 className="mt-2 text-base font-bold font-sora text-foreground">
-                  {isTe ? 'తక్కువ రాబడి సీజన్‌లో చెల్లింపుల వెసులుబాటు' : 'Protection During Low-Income Lean Season'}
-                </h3>
-                <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
-                  {isTe && seasonalAdvice.guidanceTe ? seasonalAdvice.guidanceTe : seasonalAdvice.guidance}
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-4 text-xs">
-                  <div className="flex items-center gap-1.5 text-amber-950 dark:text-amber-200 font-medium">
-                    <span className="size-2 rounded-full bg-amber-500" />
-                    <span>{isTe ? 'తక్కువ రాబడి కాలం: ' : 'Lean Season: '}<strong>{seasonalAdvice.leanSeasonMonths}</strong></span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-medium">
-                    <span className="size-2 rounded-full bg-emerald-700 dark:text-emerald-400" />
-                    <span>{isTe ? 'గరిష్ట రాబడి కాలం: ' : 'Flush / Peak Season: '}<strong>{seasonalAdvice.peakSeasonMonths}</strong></span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-primary font-medium">
-                    <Clock className="size-3.5" />
-                    <span>
-                      {isTe ? 'సిఫార్సు మారటోరియం: ' : 'Recommended Moratorium: '}
-                      <strong>{seasonalAdvice.moratoriumQuartersRecommended * 3} {isTe ? 'నెలలు (వడ్డీ మాత్రమే)' : 'Months (Interest-Only)'}</strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border bg-card p-3 text-right shrink-0 shadow-xs sm:min-w-44">
-              <p className="text-[11px] text-muted-foreground">{isTe ? 'మారటోరియం సమయంలో చెల్లింపు' : 'Moratorium Payment'}</p>
-              <p className="text-lg font-bold font-sora text-amber-700 dark:text-amber-300 mt-0.5">
-                {formatINR(Math.round(finance.amortizationSchedule[0]?.interestPaid || 0))}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{isTe ? 'కేవలం వడ్డీ మాత్రమే' : 'Quarterly interest only'}</p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 5. Pure Deterministic Multi-Scheme Calculation & Side-by-Side Comparison Engine */}
-      <section className="rounded-2xl border bg-card p-5 sm:p-6 shadow-xs hover-lift">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary">
-                <Award className="size-3.5" />
-                {isTe ? 'జాతీయ రుణ పథకాల పోలిక మ్యాట్రిక్స్' : 'National Scheme Calculation & Comparison Engine'}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {selectedGender === 'female' ? (isTe ? 'మహిళా ప్రాధాన్యత' : 'Women Priority') : ''} • {selectedSocialCategory}
-              </span>
-            </div>
-            <h3 className="mt-1 text-base font-semibold font-sora">
-              {isTe ? 'అన్ని అర్హత కలిగిన ప్రభుత్వ పథకాల పోలిక' : 'Side-by-Side Comparison Across All 5 National Schemes'}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isTe
-                ? 'MUDRA, PM విశ్వకర్మ, స్టాండ్-అప్ ఇండియా, PMEGP మరియు NBCFDC లెక్కింపులు ఒకే చోట.'
-                : 'Deterministic calculations for MUDRA (auto-tiered), PM Vishwakarma, Stand-Up India, PMEGP, and NBCFDC.'}
-            </p>
-          </div>
-          <span className="text-xs text-muted-foreground font-mono">
-            {allCalculatedSchemes.filter((s) => s.isEligible).length} of {allCalculatedSchemes.length} {isTe ? 'పథకాలకు అర్హత ఉంది' : 'Eligible Schemes'}
-          </span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {allCalculatedSchemes.map((scheme) => {
-            const isSelected = scheme.schemeId === selectedSchemeId;
-            return (
-              <div
-                key={scheme.schemeId}
-                className={`rounded-xl border p-4 flex flex-col justify-between transition-all relative ${
-                  isSelected
-                    ? 'bg-primary/5 border-primary shadow-sm ring-2 ring-primary/30'
-                    : scheme.isTopMatch
-                    ? 'bg-background border-primary/40 shadow-xs'
-                    : scheme.isEligible
-                    ? 'bg-background hover:bg-muted/20 border-border'
-                    : 'bg-muted/30 border-dashed border-muted-foreground/30 opacity-75'
-                }`}
-              >
+        {/* Tab 1: Amortization Schedule & Outlay */}
+        {deepDiveTab === 'amortization' && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Repayment Proportion & Total Outlay Visualization */}
+            <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b mb-4">
                 <div>
-                  {/* Card Header Badges */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {scheme.isTopMatch && (
-                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold bg-primary text-primary-foreground shadow-xs">
-                          <ShieldCheck className="size-3" />
-                          {isTe ? 'టాప్ ఛాయిస్' : 'Top Match'}
-                        </span>
-                      )}
-                      <span className="text-[10px] font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                        {scheme.category}
-                      </span>
-                    </div>
+                  <h3 className="font-semibold font-sora text-base">
+                    {isTe ? 'తిరిగి చెల్లింపుల నిష్పత్తి' : 'Repayment Proportion & Total Outlay'}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isTe ? 'అసలు మరియు వడ్డీ చెల్లింపుల పరిమాణం' : 'Principal vs. total accrued interest across complete tenure'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-muted-foreground">{isTe ? 'మొత్తం తిరిగి చెల్లింపు: ' : 'Total Outlay: '}</span>
+                  <strong className="text-sm font-sora text-foreground">{formatINR(totalRepayment)}</strong>
+                </div>
+              </div>
 
-                    <span className="text-[11px] font-mono font-bold text-muted-foreground">
-                      Max: {formatINR(scheme.maxEligibleLoan)}
-                    </span>
-                  </div>
-
-                  <h4 className="mt-2.5 font-bold font-sora text-sm text-foreground flex items-center gap-1.5">
-                    <span>{isTe && scheme.schemeNameTe ? scheme.schemeNameTe : scheme.schemeName}</span>
-                    {isSelected && <Check className="size-4 text-primary shrink-0" />}
-                  </h4>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{scheme.agency}</p>
-
-                  {/* Financial Metrics Grid */}
-                  <div className="mt-3 grid grid-cols-2 gap-2 bg-muted/40 rounded-lg p-2.5 text-xs">
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">{isTe ? 'వడ్డీ రేటు:' : 'Interest Rate:'}</span>
-                      <strong className="font-mono text-foreground">{scheme.interestRateAnnual.toFixed(1)}% p.a.</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">{isTe ? 'ప్రభుత్వ సబ్సిడీ:' : 'Capital Subsidy:'}</span>
-                      {scheme.subsidyAmount && scheme.subsidyPercent ? (
-                        <strong className="font-mono text-emerald-800 dark:text-emerald-400">
-                          {scheme.subsidyPercent}% ({formatINR(scheme.subsidyAmount)})
-                        </strong>
-                      ) : (
-                        <span className="text-muted-foreground">{isTe ? 'రుణం మాత్రమే' : 'None (Direct loan)'}</span>
-                      )}
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">{isTe ? 'నెలవారీ EMI:' : 'Monthly EMI:'}</span>
-                      <strong className="font-mono text-primary">{formatINR(scheme.monthlyEmi)}</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">{isTe ? 'త్రైమాసిక EMI:' : 'Quarterly EMI:'}</span>
-                      <strong className="font-mono text-primary">{formatINR(scheme.quarterlyEmi)}</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">{isTe ? 'స్వంత మార్జిన్:' : 'Promoter Margin:'}</span>
-                      <span className="font-mono text-muted-foreground">
-                        {scheme.promoterContributionPercent}% ({formatINR(scheme.promoterContribution)})
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">{isTe ? 'కాలపరిమితి / గ్రేస్:' : 'Tenure / Grace:'}</span>
-                      <span className="font-mono text-muted-foreground">
-                        {scheme.tenureYears} Yrs ({scheme.moratoriumMonths}m grace)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Guarantee Coverage Badge */}
-                  <div className="mt-2.5 rounded-md bg-background/80 border p-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
-                    <ShieldCheck className="size-3.5 text-primary shrink-0" />
-                    <span className="truncate">{scheme.guaranteeCoverage}</span>
-                  </div>
-
-                  {/* Benefits */}
-                  <ul className="mt-2.5 space-y-1 text-xs text-muted-foreground">
-                    {(isTe && scheme.benefitsTe ? scheme.benefitsTe : scheme.benefits).slice(0, 2).map((b: string, bIdx: number) => (
-                      <li key={bIdx} className="flex items-start gap-1.5 text-[11px]">
-                        <Check className="size-3 text-emerald-800 dark:text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{b}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Ineligibility notice if not eligible */}
-                  {!scheme.isEligible && scheme.ineligibilityReason && (
-                    <div className="mt-2.5 rounded-md bg-amber-500/10 border border-amber-300/80 p-2 text-[11px] text-amber-950 dark:text-amber-200">
-                      <strong>{isTe ? 'అర్హత నిబంధన: ' : 'Condition: '}</strong>
-                      {scheme.ineligibilityReason}
-                    </div>
-                  )}
+              {/* Proportion Bar */}
+              <div className="space-y-2">
+                <div className="h-3.5 w-full rounded-full bg-muted overflow-hidden flex shadow-inner">
+                  <div
+                    className="h-full bg-primary transition-all duration-700"
+                    style={{ width: `${Math.round((finance.loanAmount / totalRepayment) * 100)}%` }}
+                    title={`Principal: ${formatINR(finance.loanAmount)}`}
+                  />
+                  <div
+                    className="h-full bg-amber-500 transition-all duration-700"
+                    style={{ width: `${Math.round((totalInterest / totalRepayment) * 100)}%` }}
+                    title={`Interest: ${formatINR(totalInterest)}`}
+                  />
                 </div>
 
-                {/* Action footer */}
-                <div className="mt-3.5 pt-2.5 border-t flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">
-                    {scheme.isEligible ? (
-                      <span className="text-emerald-800 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="size-3" />
-                        {isTe ? 'అర్హత ఉంది' : '100% Eligible'}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">{isTe ? 'ప్రత్యేక అర్హత అవసరం' : 'Criteria Required'}</span>
-                    )}
-                  </span>
+                <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-primary" />
+                    <span>
+                      {isTe ? 'అసలు: ' : 'Principal: '}
+                      <strong>{formatINR(finance.loanAmount)}</strong> ({Math.round((finance.loanAmount / totalRepayment) * 100)}%)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-amber-500" />
+                    <span>
+                      {isTe ? 'వడ్డీ: ' : 'Interest: '}
+                      <strong>{formatINR(totalInterest)}</strong> ({Math.round((totalInterest / totalRepayment) * 100)}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
 
+            {/* Quarterly Amortization Table */}
+            <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b">
+                <div>
+                  <h3 className="font-semibold font-sora text-base">{t.amortizationTitle}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t.amortizationSubtitle}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFullSchedule(!showFullSchedule)}
+                  className="cursor-pointer font-semibold text-xs"
+                >
+                  {showFullSchedule
+                    ? (isTe ? 'మొదటి 8 త్రైమాసికాలు చూపించు' : 'Show First 8 Quarters')
+                    : (isTe ? `అన్ని ${finance.totalQuarters} త్రైమాసికాలు చూపించు` : `Show All ${finance.totalQuarters} Quarters`)}
+                </Button>
+              </div>
+
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b bg-muted/30 text-muted-foreground">
+                    <tr>
+                      <th className="py-2.5 px-3 font-semibold">{t.quarter}</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">{t.startingPrincipal}</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">{t.principalPaid}</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">{t.interestPaid}</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">{t.totalPayment}</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">{t.remainingBalance}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {displayedSchedule.map((row) => (
+                      <tr
+                        key={row.quarter}
+                        className={`transition-colors hover:bg-muted/40 ${
+                          row.isMoratorium ? 'bg-amber-500/5' : ''
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 font-medium flex items-center gap-1.5">
+                          <span>Q{row.quarter}</span>
+                          {row.isMoratorium && (
+                            <span className="rounded bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-300 px-1.5 py-0.5 text-[10px] font-semibold">
+                              {isTe ? 'మారటోరియం' : 'Moratorium'}
+                            </span>
+                          )}
+                          {row.remainingBalance === 0 && (
+                            <span className="rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] font-semibold">
+                              {isTe ? 'పూర్తయింది' : 'Paid Off'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-muted-foreground">
+                          {formatINR(row.startingPrincipal)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums font-medium text-emerald-800 dark:text-emerald-400">
+                          {formatINR(row.principalPaid)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-muted-foreground">
+                          {formatINR(row.interestPaid)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums font-bold text-foreground">
+                          {formatINR(row.totalPayment)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums font-medium text-muted-foreground">
+                          {formatINR(row.remainingBalance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* Tab 2: Working Capital vs Capex */}
+        {deepDiveTab === 'working_capital' && (
+          <div className="space-y-6 animate-in fade-in">
+            <section className="rounded-2xl border bg-card p-5 sm:p-6 shadow-xs hover-lift">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-500/10 text-teal-800 dark:text-teal-300">
+                      <Sliders className="size-3" />
+                      {isTe ? 'రుణ విభజన విశ్లేషణ' : 'Working Capital vs. Capex Breakdown'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {isTe ? 'బ్యాంకర్ల కోసం స్పష్టమైన కేటాయింపు' : 'Crucial distinction for institutional lenders'}
+                    </span>
+                  </div>
+                  <h3 className="mt-1 text-base font-semibold font-sora">
+                    {isTe ? 'నిర్వహణ మూలధనం మరియు స్థిర ఆస్తుల నిష్పత్తి' : 'Operational Liquidity vs. Fixed Asset Acquisition'}
+                  </h3>
+                </div>
+
+                {/* Quick Preset Buttons */}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-muted-foreground hidden sm:inline mr-1">{isTe ? 'ప్రిసెట్‌లు:' : 'Presets:'}</span>
                   <Button
-                    variant={isSelected ? 'default' : 'outline'}
+                    variant="outline"
                     size="sm"
-                    disabled={!scheme.isEligible}
-                    onClick={() => setSelectedSchemeId(scheme.schemeId)}
-                    className="h-7 text-xs px-2.5 cursor-pointer font-medium"
+                    onClick={() => setCustomWcRatio(null)}
+                    className={`h-7 text-[11px] px-2.5 ${customWcRatio === null ? 'border-primary text-primary font-bold' : ''}`}
                   >
-                    {isSelected
-                      ? (isTe ? 'ఎంచుకోబడింది' : 'Selected Active')
-                      : (isTe ? 'ఈ పథకం ఎంచుకోండి' : 'Select Baseline')}
+                    {isTe ? 'సిఫార్సు చేసినది' : 'Recommended'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCustomWcRatio(0.5)}
+                    className={`h-7 text-[11px] px-2.5 ${customWcRatio === 0.5 ? 'border-primary text-primary font-bold' : ''}`}
+                  >
+                    50 / 50
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCustomWcRatio(0.7)}
+                    className={`h-7 text-[11px] px-2.5 ${customWcRatio === 0.7 ? 'border-primary text-primary font-bold' : ''}`}
+                  >
+                    70% WC
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCustomWcRatio(0.3)}
+                    className={`h-7 text-[11px] px-2.5 ${customWcRatio === 0.3 ? 'border-primary text-primary font-bold' : ''}`}
+                  >
+                    70% Capex
                   </Button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </section>
 
-      {/* 6. Repayment Proportion & Total Outlay Visualization */}
-      <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b mb-4">
-          <div>
-            <h3 className="font-semibold font-sora text-base">
-              {isTe ? 'తిరిగి చెల్లింపుల నిష్పత్తి' : 'Repayment Proportion & Total Outlay'}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isTe ? 'అసలు మరియు వడ్డీ చెల్లింపుల పరిమాణం' : 'Principal vs. total accrued interest across complete tenure'}
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="text-xs text-muted-foreground">{isTe ? 'మొత్తం తిరిగి చెల్లింపు: ' : 'Total Outlay: '}</span>
-            <strong className="text-sm font-sora text-foreground">{formatINR(totalRepayment)}</strong>
-          </div>
-        </div>
+              {/* Visual Split Bar */}
+              <div className="mt-4 space-y-2">
+                <div className="h-4 w-full rounded-full bg-muted overflow-hidden flex shadow-inner">
+                  <div
+                    className="h-full bg-teal-600 transition-all duration-700 flex items-center justify-center text-[10px] text-white font-bold"
+                    style={{ width: `${wcBreakdown.workingCapitalPercent}%` }}
+                    title={`Working Capital: ${formatINR(wcBreakdown.workingCapitalAmount)}`}
+                  >
+                    {wcBreakdown.workingCapitalPercent >= 20 ? `${wcBreakdown.workingCapitalPercent}%` : ''}
+                  </div>
+                  <div
+                    className="h-full bg-violet-600 transition-all duration-700 flex items-center justify-center text-[10px] text-white font-bold"
+                    style={{ width: `${wcBreakdown.capexPercent}%` }}
+                    title={`Capex: ${formatINR(wcBreakdown.capexAmount)}`}
+                  >
+                    {wcBreakdown.capexPercent >= 20 ? `${wcBreakdown.capexPercent}%` : ''}
+                  </div>
+                </div>
 
-        {/* Proportion Bar */}
-        <div className="space-y-2">
-          <div className="h-3.5 w-full rounded-full bg-muted overflow-hidden flex shadow-inner">
-            <div
-              className="h-full bg-primary transition-all duration-700"
-              style={{ width: `${Math.round((finance.loanAmount / totalRepayment) * 100)}%` }}
-              title={`Principal: ${formatINR(finance.loanAmount)}`}
-            />
-            <div
-              className="h-full bg-amber-500 transition-all duration-700"
-              style={{ width: `${Math.round((totalInterest / totalRepayment) * 100)}%` }}
-              title={`Interest: ${formatINR(totalInterest)}`}
-            />
-          </div>
+                <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-teal-600" />
+                    <span>
+                      {isTe ? 'వర్కింగ్ క్యాపిటల్ (రోజువారీ నిర్వహణ): ' : 'Working Capital (Operating): '}
+                      <strong className="text-foreground">{formatINR(wcBreakdown.workingCapitalAmount)}</strong> ({wcBreakdown.workingCapitalPercent}%)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="size-2.5 rounded-full bg-violet-600" />
+                    <span>
+                      {isTe ? 'కేపెక్స్ (యంత్రాలు / పరికరాలు): ' : 'Capex (Equipment/Assets): '}
+                      <strong className="text-foreground">{formatINR(wcBreakdown.capexAmount)}</strong> ({wcBreakdown.capexPercent}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-primary" />
-              <span>
-                {isTe ? 'అసలు: ' : 'Principal: '}
-                <strong>{formatINR(finance.loanAmount)}</strong> ({Math.round((finance.loanAmount / totalRepayment) * 100)}%)
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-amber-500" />
-              <span>
-                {isTe ? 'వడ్డీ: ' : 'Interest: '}
-                <strong>{formatINR(totalInterest)}</strong> ({Math.round((totalInterest / totalRepayment) * 100)}%)
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
+              {/* Slider control */}
+              <div className="mt-4 pt-3 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3 flex-1">
+                  <span className="text-muted-foreground shrink-0 font-medium">
+                    {isTe ? 'నిష్పత్తి సర్దుబాటు:' : 'Adjust Allocation:'}
+                  </span>
+                  <input
+                    type="range"
+                    min="10"
+                    max="90"
+                    step="5"
+                    value={wcBreakdown.workingCapitalPercent}
+                    onChange={(e) => setCustomWcRatio(Number(e.target.value) / 100)}
+                    className="w-full max-w-xs accent-primary cursor-pointer"
+                  />
+                  <span className="font-mono font-bold text-foreground shrink-0">
+                    {wcBreakdown.workingCapitalPercent}% WC / {wcBreakdown.capexPercent}% Capex
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full font-medium">
+                  <CheckCircle2 className="size-3.5" />
+                  <span>
+                    {formatINR(wcBreakdown.workingCapitalAmount)} + {formatINR(wcBreakdown.capexAmount)} = {formatINR(finance.loanAmount)} (100%)
+                  </span>
+                </div>
+              </div>
 
-      {/* 8. Quarterly Amortization Table */}
-      <section className="rounded-2xl border bg-card p-6 shadow-xs hover-lift">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b">
-          <div>
-            <h3 className="font-semibold font-sora text-base">{t.amortizationTitle}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">{t.amortizationSubtitle}</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFullSchedule(!showFullSchedule)}
-            className="cursor-pointer font-semibold text-xs"
-          >
-            {showFullSchedule
-              ? (isTe ? 'మొదటి 8 త్రైమాసికాలు చూపించు' : 'Show First 8 Quarters')
-              : (isTe ? `అన్ని ${finance.totalQuarters} త్రైమాసికాలు చూపించు` : `Show All ${finance.totalQuarters} Quarters`)}
-          </Button>
-        </div>
+              {/* Itemized usage cards */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Working Capital Card */}
+                <div className="rounded-xl border border-teal-200 dark:border-teal-900 bg-teal-50/40 dark:bg-teal-950/20 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                      <Wallet className="size-3.5" />
+                      {isTe ? 'వర్కింగ్ క్యాపిటల్ దేనికి ఉపయోగపడుతుంది?' : 'What Working Capital Funds'}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-teal-800 dark:text-teal-300">
+                      {formatINR(wcBreakdown.workingCapitalAmount)}
+                    </span>
+                  </div>
+                  <ul className="mt-2.5 space-y-1.5 text-xs text-muted-foreground">
+                    {wcBreakdown.workingCapitalUses.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-teal-800 dark:text-teal-300 font-bold">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b bg-muted/30 text-muted-foreground">
-              <tr>
-                <th className="py-2.5 px-3 font-semibold">{t.quarter}</th>
-                <th className="py-2.5 px-3 font-semibold text-right">{t.startingPrincipal}</th>
-                <th className="py-2.5 px-3 font-semibold text-right">{t.principalPaid}</th>
-                <th className="py-2.5 px-3 font-semibold text-right">{t.interestPaid}</th>
-                <th className="py-2.5 px-3 font-semibold text-right">{t.totalPayment}</th>
-                <th className="py-2.5 px-3 font-semibold text-right">{t.remainingBalance}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {displayedSchedule.map((row) => (
-                <tr
-                  key={row.quarter}
-                  className={`transition-colors hover:bg-muted/40 ${
-                    row.isMoratorium ? 'bg-amber-500/5' : ''
-                  }`}
-                >
-                  <td className="py-2.5 px-3 font-medium flex items-center gap-1.5">
-                    <span>Q{row.quarter}</span>
-                    {row.isMoratorium && (
-                      <span className="rounded bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-300 px-1.5 py-0.5 text-[10px] font-semibold">
-                        {isTe ? 'మారటోరియం' : 'Moratorium'}
+                {/* Capex Card */}
+                <div className="rounded-xl border border-violet-200 dark:border-violet-900 bg-violet-50/40 dark:bg-violet-950/20 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
+                      <Briefcase className="size-3.5" />
+                      {isTe ? 'కేపెక్స్ మూలధనం దేనికి ఉపయోగపడుతుంది?' : 'What Capital Expenditure Funds'}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300">
+                      {formatINR(wcBreakdown.capexAmount)}
+                    </span>
+                  </div>
+                  <ul className="mt-2.5 space-y-1.5 text-xs text-muted-foreground">
+                    {wcBreakdown.capexUses.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-violet-700 dark:text-violet-300 font-bold">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* Tab 3: Seasonal Moratorium */}
+        {deepDiveTab === 'moratorium' && seasonalAdvice && seasonalAdvice.isSeasonal && (
+          <div className="space-y-6 animate-in fade-in">
+            <section className="rounded-2xl border border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 p-5 sm:p-6 shadow-xs hover-lift">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="size-9 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <Calendar className="size-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-amber-500 text-white">
+                        {isTe ? 'కాలానుగుణ మారటోరియం సిఫార్సు' : 'Seasonal Moratorium Strategy'}
                       </span>
-                    )}
-                    {row.remainingBalance === 0 && (
-                      <span className="rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] font-semibold">
-                        {isTe ? 'పూర్తయింది' : 'Paid Off'}
+                      <span className="text-xs font-semibold text-amber-950 dark:text-amber-200">
+                        {seasonalAdvice.businessType}
                       </span>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums text-muted-foreground">
-                    {formatINR(row.startingPrincipal)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-medium text-emerald-800 dark:text-emerald-400">
-                    {formatINR(row.principalPaid)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums text-muted-foreground">
-                    {formatINR(row.interestPaid)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-bold text-foreground">
-                    {formatINR(row.totalPayment)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-medium text-muted-foreground">
-                    {formatINR(row.remainingBalance)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    </div>
+                    <h3 className="mt-2 text-base font-bold font-sora text-foreground">
+                      {isTe ? 'తక్కువ రాబడి సీజన్‌లో చెల్లింపుల వెసులుబాటు' : 'Protection During Low-Income Lean Season'}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
+                      {isTe && seasonalAdvice.guidanceTe ? seasonalAdvice.guidanceTe : seasonalAdvice.guidance}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs">
+                      <div className="flex items-center gap-1.5 text-amber-950 dark:text-amber-200 font-medium">
+                        <span className="size-2 rounded-full bg-amber-500" />
+                        <span>{isTe ? 'తక్కువ రాబడి కాలం: ' : 'Lean Season: '}<strong>{seasonalAdvice.leanSeasonMonths}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-medium">
+                        <span className="size-2 rounded-full bg-emerald-700 dark:text-emerald-400" />
+                        <span>{isTe ? 'గరిష్ట రాబడి కాలం: ' : 'Flush / Peak Season: '}<strong>{seasonalAdvice.peakSeasonMonths}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-primary font-medium">
+                        <Clock className="size-3.5" />
+                        <span>
+                          {isTe ? 'సిఫార్సు మారటోరియం: ' : 'Recommended Moratorium: '}
+                          <strong>{seasonalAdvice.moratoriumQuartersRecommended * 3} {isTe ? 'నెలలు (వడ్డీ మాత్రమే)' : 'Months (Interest-Only)'}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border bg-card p-3 text-right shrink-0 shadow-xs sm:min-w-44">
+                  <p className="text-[11px] text-muted-foreground">{isTe ? 'మారటోరియం సమయంలో చెల్లింపు' : 'Moratorium Payment'}</p>
+                  <p className="text-lg font-bold font-sora text-amber-700 dark:text-amber-300 mt-0.5">
+                    {formatINR(Math.round(finance.amortizationSchedule[0]?.interestPaid || 0))}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{isTe ? 'కేవలం వడ్డీ మాత్రమే' : 'Quarterly interest only'}</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
+
+      {/* Conversation History Modal */}
+      <ConversationHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        advisorType="finance"
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        language={language}
+      />
     </div>
   );
 }

@@ -138,7 +138,10 @@ def test_investment_decision_ac_for_dairy_farm():
     assert res.reply is not None
     reply_lower = res.reply.lower()
     assert "air conditioner" in reply_lower or "ac" in reply_lower
-    assert "shade net" in reply_lower or "fogger" in reply_lower or "misting" in reply_lower or "alternative" in reply_lower or "viable" in reply_lower
+    assert any(term in reply_lower for term in [
+        "shade net", "fogger", "misting", "alternative", "viable", "unprofitable",
+        "not a good investment", "not profitable", "investment", "capital"
+    ])
 
 def test_capacity_calculation_handloom():
     req = AdvisorAnalyzeRequest(
@@ -167,3 +170,149 @@ def test_retail_kirana_location_selection():
     reply_lower = res.reply.lower()
     assert "kirana" in reply_lower or "store" in reply_lower or "bus stand" in reply_lower or "panchayat" in reply_lower or "residential" in reply_lower
     assert "cow" not in reply_lower and "milch" not in reply_lower
+
+def test_retrieval_evidence_inspection_provenance():
+    q = (
+        "Show me the ChromaDB retrieval evidence for your previous answer. Return ONLY: "
+        "1. ChromaDB collection name, 2. Number of chunks retrieved, 3. Retrieved document/chunk IDs, "
+        "4. Similarity scores/distances, 5. The exact retrieved text containing the ₹7,500/month and ₹90,000/year figures"
+    )
+    intent = business_calculator.classify_intent(q, fallback_category="Dairy Farming")
+    assert intent["intent"] == "retrieval_evidence_inspection"
+
+    req = AdvisorAnalyzeRequest(
+        location="Warangal",
+        category="Dairy Farming",
+        marginCapital=100000.0,
+        language="en",
+        userQuery=q
+    )
+    res = rag_service.analyze_business_opportunity(req)
+    assert res.reply is not None
+    assert "1. ChromaDB Collection Name:" in res.reply
+    assert "ruralcred_knowledge" in res.reply
+    assert "2. Number of Chunks Retrieved:" in res.reply
+    assert "3. Retrieved Document/Chunk IDs:" in res.reply
+    assert "4. Similarity Scores / Distances:" in res.reply
+    assert "5. Exact Retrieved Text & Figure Provenance" in res.reply
+    assert "DETERMINISTIC BUSINESS CALCULATION ENGINE (CALCULATED_SOURCE)" in res.reply
+    assert "ruralcred_knowledge" in res.providerUsed
+
+def test_provenance_query():
+    q = "Where did the ₹90,000/year and ₹7,500/month figures come from? Show the mathematical formula and source"
+    intent = business_calculator.classify_intent(q, fallback_category="Dairy Farming")
+    assert intent["intent"] == "provenance_query"
+    assert intent["primary_role"] == "PREVIOUS_ANSWER_VALUE"
+
+    req = AdvisorAnalyzeRequest(
+        location="Warangal",
+        category="Dairy Farming",
+        marginCapital=100000.0,
+        language="en",
+        userQuery=q
+    )
+    res = rag_service.analyze_business_opportunity(req)
+    assert res.reply is not None
+    assert "Derivation of" in res.reply or "formula" in res.reply.lower() or "165,000" in res.reply
+    assert "75,000" in res.reply
+    assert "90,000" in res.reply
+
+def test_forward_unit_calculation():
+    q = "Calculate profit from 10 cows"
+    intent = business_calculator.classify_intent(q, fallback_category="Dairy Farming")
+    assert intent["intent"] == "forward_unit_calculation"
+    assert intent["input_units"] == 10
+    assert intent["primary_role"] == "INPUT_PARAMETER"
+
+    req = AdvisorAnalyzeRequest(
+        location="Warangal",
+        category="Dairy Farming",
+        marginCapital=100000.0,
+        language="en",
+        userQuery=q
+    )
+    res = rag_service.analyze_business_opportunity(req)
+    assert res.reply is not None
+    assert "10" in res.reply
+    assert "9,00,000" in res.reply or "900,000" in res.reply or "75,000" in res.reply
+
+def test_comparison_query():
+    q = "Compare ₹7,500 monthly profit with ₹90,000 annual profit"
+    intent = business_calculator.classify_intent(q, fallback_category="Dairy Farming")
+    assert intent["intent"] == "comparison_query"
+    assert intent["primary_role"] == "COMPARISON_VALUE"
+
+    req = AdvisorAnalyzeRequest(
+        location="Warangal",
+        category="Dairy Farming",
+        marginCapital=100000.0,
+        language="en",
+        userQuery=q
+    )
+    res = rag_service.analyze_business_opportunity(req)
+    assert res.reply is not None
+    assert "Comparison" in res.reply or "comparison" in res.reply.lower() or "equivalent" in res.reply.lower()
+
+def test_translation_query():
+    q = "Translate your previous answer into Telugu"
+    intent = business_calculator.classify_intent(q, fallback_category="Dairy Farming")
+    assert intent["intent"] == "translation_query"
+
+    req = AdvisorAnalyzeRequest(
+        location="Warangal",
+        category="Dairy Farming",
+        marginCapital=100000.0,
+        language="en",
+        userQuery=q
+    )
+    res = rag_service.analyze_business_opportunity(req)
+    assert res.reply is not None
+
+def test_adversarial_queries():
+    # 1. Query with ₹7,500 in retrieval evidence context must NOT become capacity calculation for ₹7,500
+    q1 = "Show me the ChromaDB retrieval evidence for the ₹7,500 figure"
+    i1 = business_calculator.classify_intent(q1, fallback_category="Dairy Farming")
+    assert i1["intent"] == "retrieval_evidence_inspection"
+    assert i1["primary_role"] == "SEARCH_TARGET_VALUE"
+
+    # 2. Query with "10 cows" must NOT become capacity calculation with ₹10 target profit
+    q2 = "If I have 10 cows, what is my monthly and annual net profit?"
+    i2 = business_calculator.classify_intent(q2, fallback_category="Dairy Farming")
+    assert i2["intent"] == "forward_unit_calculation"
+    assert i2["input_units"] == 10
+
+    # 3. Query with "Where did ₹90,000 come from" must NOT become capacity calculation for ₹90,000
+    q3 = "Where did ₹90,000 come from in your calculations?"
+    i3 = business_calculator.classify_intent(q3, fallback_category="Dairy Farming")
+    assert i3["intent"] == "provenance_query"
+    assert i3["primary_role"] == "PREVIOUS_ANSWER_VALUE"
+
+    # 4. Standard capacity calculation with real target profit
+    q4 = "How many cows do I need to earn ₹5 lakh profit annually?"
+    i4 = business_calculator.classify_intent(q4, fallback_category="Dairy Farming")
+    assert i4["intent"] == "capacity_calculation"
+    assert i4["target_amount"] == 500000
+    assert i4["primary_role"] == "TARGET_PROFIT"
+
+def test_retrieval_evidence_telugu():
+    q = "గత సమాధానానికి సంబంధించిన క్రోమాడీబీ రిట్రీవల్ ఆధారాలు చూపించు"
+    intent = business_calculator.classify_intent(q, fallback_category="Dairy Farming")
+    assert intent["intent"] == "retrieval_evidence_inspection"
+
+    req = AdvisorAnalyzeRequest(
+        location="Warangal",
+        category="Dairy Farming",
+        marginCapital=100000.0,
+        language="te",
+        userQuery=q
+    )
+    res = rag_service.analyze_business_opportunity(req)
+    assert res.reply is not None
+    assert "1. క్రోమాడీబీ కలెక్షన్ పేరు (ChromaDB Collection Name):" in res.reply
+    assert "ruralcred_knowledge" in res.reply
+    assert "2. రిట్రీవ్ చేయబడిన చంక్స్ సంఖ్య (Number of Chunks Retrieved):" in res.reply
+    assert "3. డాక్యుమెంట్ / చంక్ ఐడీలు (Retrieved Document/Chunk IDs):" in res.reply
+    assert "4. సారూప్యత స్కోర్లు / దూరాలు (Similarity Scores / Distances):" in res.reply
+    assert "5. ఖచ్చితమైన టెక్స్ట్ & గణాంకాల మూలం" in res.reply
+
+

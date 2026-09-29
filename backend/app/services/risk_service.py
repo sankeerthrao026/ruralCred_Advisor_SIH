@@ -1,19 +1,31 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from app.models.schemas import DetectedRisk, RiskAnalysisResponse
 
 def evaluate_financial_risks(
-    has_active_loan: bool,
-    simulating_second_loan: bool,
-    total_income: float,
-    total_expenses: float,
-    net_cash_flow: float,
+    has_active_loan: Any = False,
+    simulating_second_loan: bool = False,
+    total_income: float = 0.0,
+    total_expenses: float = 0.0,
+    net_cash_flow: float = 0.0,
     previous_net_cash_flow: Optional[float] = None,
 ) -> RiskAnalysisResponse:
     """
     Deterministic Risk Engine: Evaluates invariant financial rules.
     Python code decides if a risk exists; LLM only explains an already detected risk.
     """
+    if hasattr(has_active_loan, "hasActiveLoan"):
+        req = has_active_loan
+        has_active_loan = bool(getattr(req, "hasActiveLoan", False))
+        simulating_second_loan = bool(getattr(req, "simulatingSecondLoan", False))
+        total_income = float(getattr(req, "totalIncome", 0.0))
+        total_expenses = float(getattr(req, "totalExpenses", 0.0))
+        net_cash_flow = float(getattr(req, "netCashFlow", 0.0))
+        previous_net_cash_flow = getattr(req, "previousNetCashFlow", None)
+        if previous_net_cash_flow is not None:
+            previous_net_cash_flow = float(previous_net_cash_flow)
+
     detected_risks: List[DetectedRisk] = []
+
 
     # Rule 1: Over-Leverage Risk (Active loan present while seeking 2nd loan)
     if has_active_loan and simulating_second_loan:

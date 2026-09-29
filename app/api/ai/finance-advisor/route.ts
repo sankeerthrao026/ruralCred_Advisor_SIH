@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     // 2. Build Structured Normalized User Financial Context
     const context = buildNormalizedFinancialContext({
       profile: {
-        name: userProfile?.name || 'Anita Sharma',
+        name: userProfile?.name || 'Entrepreneur',
         businessName: userProfile?.businessName,
         location: location || userProfile?.location,
         category: category || userProfile?.category,

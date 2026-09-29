@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { formatINR } from '@/lib/utils/currency';
@@ -9,36 +10,56 @@ import {
   MapPin,
   IndianRupee,
   Mic,
-  Languages,
   Sparkles,
   ArrowRight,
   Check,
-  CheckCircle2,
+  User,
   ShieldCheck,
+  AlertCircle,
+  Briefcase,
 } from 'lucide-react';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { VoiceButton } from '@/components/ui/voice-button';
 import { parseSpokenTransaction } from '@/lib/voice/speech';
 
 export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
-  const { language, setLanguage, inputMode, setInputMode, updateProfile, loadPreset, dictionary } = useApp();
+  const { user, isDemo } = useAuth();
+  const {
+    profile,
+    language,
+    setLanguage,
+    inputMode,
+    setInputMode,
+    updateProfile,
+    dictionary,
+  } = useApp();
   const isTe = language === 'te';
   const t = dictionary.onboarding;
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [location, setLocation] = useState('Warangal, Telangana');
-  const [category, setCategory] = useState('Dairy Farming');
-  const [marginCapital, setMarginCapital] = useState('100000');
+  const defaultName = profile?.name || user?.name || user?.email?.split('@')[0] || '';
+  const defaultBiz = profile?.businessName || (defaultName ? `${defaultName} Enterprises` : '');
+
+  const [name, setName] = useState(defaultName);
+  const [businessName, setBusinessName] = useState(defaultBiz);
+  const [location, setLocation] = useState(profile?.location || '');
+  const [category, setCategory] = useState(profile?.category || 'Dairy Farming');
+  const [marginCapital, setMarginCapital] = useState(
+    profile?.marginCapital && profile.marginCapital > 0
+      ? profile.marginCapital.toString()
+      : '100000'
+  );
+  const [hasActiveLoan, setHasActiveLoan] = useState(profile?.hasActiveLoan || false);
+  const [gender, setGender] = useState(profile?.gender || 'female');
+  const [socialCategory, setSocialCategory] = useState(profile?.socialCategory || 'OBC');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const voiceInput = useVoiceInput({
     targetLanguage: language,
     onResult: (transcript, isFinal) => {
-      // Only final transcripts should update the form — interim results would
-      // otherwise flicker partial text into the fields.
       if (!isFinal) return;
 
-      // Numbers extraction for margin capital (supports words like "ఒక లక్ష", "one lakh", and digits)
+      // Numbers extraction for margin capital
       const parsedTx = parseSpokenTransaction(transcript);
       const cleanStr = transcript.replace(/₹/g, '').replace(/,/g, '');
       const numbers = cleanStr.match(/\d+/g);
@@ -100,37 +121,99 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
   };
 
   const handleSelectPreset = (presetKey: 'dairy' | 'kirana' | 'weaving') => {
-    loadPreset(presetKey);
+    const realUserDefaultName = user?.name || user?.email?.split('@')[0] || 'Entrepreneur';
     if (presetKey === 'dairy') {
+      if (isDemo) {
+        setName('Anita Sharma');
+        setBusinessName('Sharma Dairy Farm');
+      } else {
+        const activeName = name.trim() || realUserDefaultName;
+        setName(activeName);
+        setBusinessName(`${activeName} Dairy Farm`);
+      }
       setLocation('Warangal, Telangana');
       setCategory('Dairy Farming');
-      setMarginCapital('100000');
+      setMarginCapital('150000');
+      setHasActiveLoan(false);
+      setGender('female');
+      setSocialCategory('OBC');
     } else if (presetKey === 'kirana') {
-      setLocation('Karimnagar, Telangana');
+      if (isDemo) {
+        setName('Ramesh Kumar');
+        setBusinessName('Ramesh General & Kirana Store');
+      } else {
+        const activeName = name.trim() || realUserDefaultName;
+        setName(activeName);
+        setBusinessName(`${activeName} General & Kirana Store`);
+      }
+      setLocation('Khammam, Telangana');
       setCategory('Rural Grocery / Kirana');
-      setMarginCapital('12000');
+      setMarginCapital('50000');
+      setHasActiveLoan(false);
+      setGender('male');
+      setSocialCategory('OBC');
     } else if (presetKey === 'weaving') {
+      if (isDemo) {
+        setName('Lakshmi Devi');
+        setBusinessName('Lakshmi Handlooms & Textiles');
+      } else {
+        const activeName = name.trim() || realUserDefaultName;
+        setName(activeName);
+        setBusinessName(`${activeName} Handlooms & Textiles`);
+      }
       setLocation('Nalgonda, Telangana');
       setCategory('Handloom / Weaving');
       setMarginCapital('30000');
+      setHasActiveLoan(false);
+      setGender('female');
+      setSocialCategory('General');
     }
-    setStep(2);
   };
 
   const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    const cleanName = name.trim();
+    const cleanBiz = businessName.trim();
+    const cleanLoc = location.trim();
+
+    if (!cleanName) {
+      setError(isTe ? 'దయచేసి మీ పూర్తి పేరు నమోదు చేయండి.' : 'Please enter your full name.');
+      return;
+    }
+    if (!cleanBiz) {
+      setError(isTe ? 'దయచేసి మీ వ్యాపార పేరు నమోదు చేయండి.' : 'Please enter your business / enterprise name.');
+      return;
+    }
+    if (!cleanLoc) {
+      setError(isTe ? 'దయచేసి మీ వ్యాపార స్థలం / జిల్లా నమోదు చేయండి.' : 'Please enter your business location / district.');
+      return;
+    }
+
     setLoading(true);
-    const cleanMargin = parseFloat(marginCapital.replace(/[^\d]/g, '')) || 100000;
+    const cleanMargin = parseFloat(marginCapital.replace(/[^\d]/g, '')) || 0;
 
-    await updateProfile({
-      location,
-      category,
-      marginCapital: cleanMargin,
-      onboardingCompleted: true,
-    });
+    try {
+      await updateProfile({
+        name: cleanName,
+        businessName: cleanBiz,
+        location: cleanLoc,
+        category,
+        marginCapital: cleanMargin,
+        hasActiveLoan,
+        gender,
+        socialCategory,
+        onboardingCompleted: true,
+      });
 
-    setLoading(false);
-    onComplete?.();
+      setLoading(false);
+      onComplete?.();
+    } catch (err: any) {
+      console.error('[Onboarding] Profile update error:', err);
+      setError(err?.message || (isTe ? 'ప్రొఫైల్ భద్రపరచడం విఫలమైంది.' : 'Failed to save profile. Please try again.'));
+      setLoading(false);
+    }
   };
 
   return (
@@ -161,10 +244,12 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
             <span className="text-2xl font-bold font-sora">R</span>
           </div>
           <h1 className="text-2xl font-bold font-sora tracking-tight text-foreground">
-            {t.title}
+            {isTe ? 'మీ ప్రొఫైల్ పూర్తి చేయండి' : 'Complete Your Profile'}
           </h1>
           <p className="mt-1 text-xs text-muted-foreground max-w-md">
-            {t.subtitle}
+            {isTe
+              ? 'సరైన ప్రభుత్వ రుణ పథకాలు మరియు AI సలహాలు పొందడానికి మీ వ్యాపార వివరాలను నమోదు చేయండి.'
+              : 'Set up your enterprise details to unlock tailored financing schemes, AI advisory, and credit scoring.'}
           </p>
         </div>
 
@@ -181,7 +266,7 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
               className="rounded-lg border bg-card p-2.5 text-left text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors shadow-xs cursor-pointer"
             >
               <span className="font-semibold block truncate">Anita Sharma</span>
-              <span className="text-[10px] opacity-75 block">{isTe ? 'పాడి • ₹1,00,000' : 'Dairy • ₹1,00,000'}</span>
+              <span className="text-[10px] opacity-75 block">{isTe ? 'పాడి • ₹1,50,000' : 'Dairy • ₹1.5L'}</span>
             </button>
             <button
               type="button"
@@ -189,7 +274,7 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
               className="rounded-lg border bg-card p-2.5 text-left text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors shadow-xs cursor-pointer"
             >
               <span className="font-semibold block truncate">Ramesh Kumar</span>
-              <span className="text-[10px] opacity-75 block">{isTe ? 'కిరాణా • ₹12,000' : 'Kirana • ₹12,000'}</span>
+              <span className="text-[10px] opacity-75 block">{isTe ? 'కిరాణా • ₹50,000' : 'Kirana • ₹50k'}</span>
             </button>
             <button
               type="button"
@@ -197,13 +282,20 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
               className="rounded-lg border bg-card p-2.5 text-left text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors shadow-xs cursor-pointer"
             >
               <span className="font-semibold block truncate">Lakshmi Devi</span>
-              <span className="text-[10px] opacity-75 block">{isTe ? 'చేనేత • ₹30,000' : 'Handloom • ₹30,000'}</span>
+              <span className="text-[10px] opacity-75 block">{isTe ? 'చేనేత • ₹30,000' : 'Handloom • ₹30k'}</span>
             </button>
           </div>
         </div>
 
         {/* Step Cards */}
         <form onSubmit={handleFinish} className="rounded-2xl border bg-card p-6 sm:p-8 shadow-xs flex flex-col gap-6">
+          {error && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           {/* Step 1: Language & Interaction Preference */}
           <div>
             <div className="flex items-center justify-between pb-3 border-b mb-4">
@@ -312,6 +404,38 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
               </div>
             )}
 
+            {/* Entrepreneur Name */}
+            <div className="mb-4">
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1.5">
+                <User className="size-3.5 text-primary" />
+                {isTe ? 'పూర్తి పేరు' : 'Full Name / Promoter Name'}
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={isTe ? 'ఉదా: అనిత శర్మ' : 'e.g. Rahul Kumar'}
+                className="w-full rounded-lg border bg-background px-3.5 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                required
+              />
+            </div>
+
+            {/* Business / Enterprise Name */}
+            <div className="mb-4">
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1.5">
+                <Briefcase className="size-3.5 text-primary" />
+                {isTe ? 'వ్యాపార / సంస్థ పేరు' : 'Business / Enterprise Name'}
+              </label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder={isTe ? 'ఉదా: శర్మ డెయిరీ ఫామ్' : 'e.g. Rahul Dairy Farm'}
+                className="w-full rounded-lg border bg-background px-3.5 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                required
+              />
+            </div>
+
             {/* Category selection */}
             <div className="mb-4">
               <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1.5">
@@ -354,7 +478,7 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
             </div>
 
             {/* Margin Capital */}
-            <div>
+            <div className="mb-4">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                   <IndianRupee className="size-3.5 text-primary" />
@@ -376,6 +500,56 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
                 {t.marginHelp}
               </p>
             </div>
+
+            {/* Demographics & Active Debt Status */}
+            <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  {isTe ? 'లింగం' : 'Gender'}
+                </label>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+                >
+                  <option value="female">{isTe ? 'మహిళ' : 'Female'}</option>
+                  <option value="male">{isTe ? 'పురుషుడు' : 'Male'}</option>
+                  <option value="other">{isTe ? 'ఇతర' : 'Other'}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  {isTe ? 'సామాజిక వర్గం' : 'Social Category'}
+                </label>
+                <select
+                  value={socialCategory}
+                  onChange={(e) => setSocialCategory(e.target.value)}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+                >
+                  <option value="OBC">OBC</option>
+                  <option value="SC">SC</option>
+                  <option value="ST">ST</option>
+                  <option value="General">{isTe ? 'జనరల్' : 'General'}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Active Loan Checkbox */}
+            <div className="mt-3 rounded-xl border p-3 bg-muted/20 flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                id="onboardingActiveLoan"
+                checked={hasActiveLoan}
+                onChange={(e) => setHasActiveLoan(e.target.checked)}
+                className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <label htmlFor="onboardingActiveLoan" className="cursor-pointer text-xs leading-tight">
+                <span className="font-semibold text-foreground">
+                  {isTe ? 'ప్రస్తుతం అమలులో ఉన్న రుణం ఉంది' : 'Currently have an active institutional or SHG loan'}
+                </span>
+              </label>
+            </div>
           </div>
 
           <Button type="submit" size="lg" disabled={loading} className="w-full font-semibold mt-2 cursor-pointer">
@@ -383,7 +557,7 @@ export function OnboardingScreen({ onComplete }: { onComplete?: () => void }) {
               <span>{t.savingText}</span>
             ) : (
               <span className="flex items-center gap-2">
-                <span>{t.enterBtn}</span>
+                <span>{isTe ? 'ప్రొఫైల్ సేవ్ చేసి డాష్‌బోర్డ్ తెరవండి' : 'Save Profile & Open Dashboard'}</span>
                 <ArrowRight className="size-4" />
               </span>
             )}

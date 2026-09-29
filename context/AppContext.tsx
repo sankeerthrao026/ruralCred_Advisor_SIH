@@ -8,6 +8,10 @@ import {
   FinanceAnalysisResult,
   FinancialHealthScoreResult,
 } from '@/lib/finance/engine';
+import {
+  calculateCreditReadiness,
+  CreditReadinessResult,
+} from '@/lib/finance/credit-score';
 import { evaluateFinancialRisks, DetectedRisk } from '@/lib/risk/engine';
 import {
   LogbookEntry,
@@ -35,6 +39,7 @@ import { getTodayDisplayDate } from '@/lib/utils/date';
 import { apiClient } from '@/lib/api/client';
 
 export type BackendConnectionMode = 'backend' | 'local_fallback' | 'checking';
+export type ProfileStatus = 'IDLE' | 'LOADING' | 'PROFILE_FOUND' | 'PROFILE_NOT_FOUND' | 'PERMISSION_DENIED' | 'NETWORK_ERROR';
 
 export interface UserProfile {
   name: string;
@@ -59,10 +64,17 @@ export interface AppContextType {
   inputMode: 'text' | 'voice';
   setInputMode: (mode: 'text' | 'voice') => void;
   profile: UserProfile;
+  profileStatus: ProfileStatus;
+  profileError: string | null;
+  retryLoadUserData: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   loadPreset: (presetKey: 'dairy' | 'weaving' | 'kirana' | 'risk_case') => void;
   hasCompletedOnboarding: boolean;
   
+  // Scheme Selection & Simulation Handover (Bug #4)
+  selectedSchemeId: string | null;
+  setSelectedSchemeId: (id: string | null) => void;
+
   // Logbook
   entries: LogbookEntry[];
   addNewEntry: (entry: Omit<LogbookEntry, 'id' | 'timestamp'>) => Promise<void>;
@@ -80,12 +92,13 @@ export interface AppContextType {
   totalCustomerCredit: number;
   totalSupplierCredit: number;
 
-  // Deterministic Analytics
+  // Deterministic Analytics & Unified Health Score (Bug #6)
   finance: FinanceAnalysisResult;
   totalIncome: number;
   totalExpenses: number;
   netCashFlow: number;
   healthScore: FinancialHealthScoreResult;
+  creditReadiness: CreditReadinessResult;
   detectedRisks: DetectedRisk[];
   dictionary: ReturnType<typeof getDictionary>;
 
@@ -143,144 +156,263 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   }, [theme, setTheme]);
 
-  const [profile, setProfile] = useState<UserProfile>({
-    name: user?.name || 'Anita Sharma',
-    businessName: 'Sharma Dairy Farm',
-    location: 'Warangal, Telangana',
-    category: 'Dairy Farming',
-    marginCapital: 100000,
-    hasActiveLoan: false,
-    simulatingSecondLoan: false,
-    onboardingCompleted: true,
-    gender: 'female',
-    socialCategory: 'OBC',
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    if (user && !user.isDemo) {
+      return {
+        name: user.name || user.email?.split('@')[0] || 'Entrepreneur',
+        businessName: `${user.name || 'My'} Enterprises`,
+        location: '',
+        category: 'Dairy Farming',
+        marginCapital: 0,
+        hasActiveLoan: false,
+        simulatingSecondLoan: false,
+        onboardingCompleted: false,
+      };
+    }
+    if (user?.isDemo) {
+      return {
+        name: 'Anita Sharma',
+        businessName: 'Sharma Dairy Farm',
+        location: 'Warangal, Telangana',
+        category: 'Dairy Farming',
+        marginCapital: 150000,
+        hasActiveLoan: false,
+        simulatingSecondLoan: false,
+        onboardingCompleted: true,
+        gender: 'female',
+        socialCategory: 'OBC',
+      };
+    }
+    return {
+      name: '',
+      businessName: '',
+      location: '',
+      category: 'Dairy Farming',
+      marginCapital: 0,
+      hasActiveLoan: false,
+      simulatingSecondLoan: false,
+      onboardingCompleted: false,
+    };
   });
 
-  const [entries, setEntries] = useState<LogbookEntry[]>(INITIAL_DEMO_ENTRIES);
-  const [khataEntries, setKhataEntries] = useState<KhataEntry[]>(INITIAL_KHATA_ENTRIES);
+  const [entries, setEntries] = useState<LogbookEntry[]>([]);
+  const [khataEntries, setKhataEntries] = useState<KhataEntry[]>([]);
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>('LOADING');
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Initialize and load saved state whenever user or userId changes
-  useEffect(() => {
-    let active = true;
-
-    async function loadUserData() {
-      if (typeof window !== 'undefined') {
-        const savedLang = localStorage.getItem('ruralcred_language') as Language;
-        if (savedLang === 'en' || savedLang === 'te') {
-          setLanguage(savedLang);
-        }
-        const savedMode = localStorage.getItem('ruralcred_input_mode') as 'text' | 'voice';
-        if (savedMode) {
-          setInputMode(savedMode);
-        }
+  const loadUserData = useCallback(async () => {
+    if (typeof window !== 'undefined') {
+      const savedLang = localStorage.getItem('ruralcred_language') as Language;
+      if (savedLang === 'en' || savedLang === 'te') {
+        setLanguage(savedLang);
       }
-
-      // Check Firestore profile if configured
-      let profileFound = false;
-      if (isFirebaseConfigured && firestoreInstance && userId) {
-        try {
-          const userDocRef = doc(firestoreInstance, 'users', userId);
-          const snap = await getDoc(userDocRef);
-          if (snap.exists() && active) {
-            setProfile(snap.data() as UserProfile);
-            profileFound = true;
-          }
-        } catch (e) {
-          console.warn('Firestore profile fetch error:', e);
-        }
-      }
-
-      if (!profileFound && typeof window !== 'undefined' && userId) {
-        // Priority 1: Check if userId or user.email directly maps to one of our preset personas
-        const lowerId = (userId || '').toLowerCase();
-        const lowerEmail = (user?.email || '').toLowerCase();
-
-        let presetProfile: UserProfile | null = null;
-        if (lowerId.includes('anita') || lowerEmail.includes('anita') || lowerEmail.includes('dairy')) {
-          presetProfile = { ...PRESET_PROFILES.dairy.profile, onboardingCompleted: true };
-        } else if (lowerId.includes('ramesh') || lowerEmail.includes('ramesh') || lowerEmail.includes('kirana')) {
-          presetProfile = { ...PRESET_PROFILES.kirana.profile, onboardingCompleted: true };
-        } else if (lowerId.includes('lakshmi') || lowerEmail.includes('lakshmi') || lowerEmail.includes('weaving') || lowerEmail.includes('handloom')) {
-          presetProfile = { ...PRESET_PROFILES.weaving.profile, onboardingCompleted: true };
-        }
-
-        if (presetProfile && active) {
-          setProfile(presetProfile);
-          try {
-            localStorage.setItem(`ruralcred_profile_${userId}`, JSON.stringify(presetProfile));
-            localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(presetProfile));
-          } catch {}
-        } else {
-          // Priority 2: Check user-specific or active saved profile
-          const profileKey = `ruralcred_profile_${userId}`;
-          const savedProfile = localStorage.getItem(profileKey) || localStorage.getItem(ACTIVE_PROFILE_KEY);
-          if (savedProfile && active) {
-            try {
-              const parsed = JSON.parse(savedProfile);
-              setProfile({
-                ...parsed,
-                location: parsed.location || 'Warangal, Telangana',
-                onboardingCompleted: true,
-              });
-            } catch (e) {}
-          } else if (active) {
-            const fallbackProfile: UserProfile = {
-              name: user?.name || user?.email?.split('@')[0] || 'Anita Sharma',
-              businessName: `${user?.name || 'Sharma'} Enterprises`,
-              location: 'Warangal, Telangana',
-              category: 'Dairy Farming',
-              marginCapital: 100000,
-              hasActiveLoan: false,
-              simulatingSecondLoan: false,
-              onboardingCompleted: true,
-              gender: 'female',
-              socialCategory: 'OBC',
-            };
-            setProfile(fallbackProfile);
-            try {
-              localStorage.setItem(`ruralcred_profile_${userId}`, JSON.stringify(fallbackProfile));
-              localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(fallbackProfile));
-            } catch {}
-          }
-        }
-      }
-
-      // Fetch isolated user entries and khata
-      if (userId) {
-        const loadedEntries = await fetchLogbookEntries(userId);
-        if (active) setEntries(loadedEntries);
-
-        const loadedKhata = await fetchKhataEntries(userId);
-        if (active && loadedKhata) setKhataEntries(loadedKhata);
+      const savedMode = localStorage.getItem('ruralcred_input_mode') as 'text' | 'voice';
+      if (savedMode) {
+        setInputMode(savedMode);
       }
     }
 
-    loadUserData();
+    if (!userId || (userId === 'demo-user' && !user?.isDemo)) {
+      setEntries([]);
+      setKhataEntries([]);
+      setProfileStatus('IDLE');
+      return;
+    }
 
-    return () => {
-      active = false;
-    };
+    const isDemoUser = Boolean(user?.isDemo || userId.startsWith('demo-') || userId.startsWith('demo_'));
+
+    if (isDemoUser) {
+      // DEMO USER FLOW
+      const lowerId = (userId || '').toLowerCase();
+      let presetProfile = { ...PRESET_PROFILES.dairy.profile, onboardingCompleted: true };
+      if (lowerId.includes('ramesh') || lowerId.includes('kirana')) {
+        presetProfile = { ...PRESET_PROFILES.kirana.profile, onboardingCompleted: true };
+      } else if (lowerId.includes('lakshmi') || lowerId.includes('weaving') || lowerId.includes('handloom')) {
+        presetProfile = { ...PRESET_PROFILES.weaving.profile, onboardingCompleted: true };
+      }
+
+      const profileKey = `ruralcred_profile_${userId}`;
+      const savedDemoProfile = typeof window !== 'undefined' ? localStorage.getItem(profileKey) : null;
+      if (savedDemoProfile) {
+        try {
+          setProfile(JSON.parse(savedDemoProfile));
+        } catch {
+          setProfile(presetProfile);
+        }
+      } else {
+        setProfile(presetProfile);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(profileKey, JSON.stringify(presetProfile));
+            localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(presetProfile));
+          } catch {}
+        }
+      }
+
+      setProfileStatus('PROFILE_FOUND');
+      setProfileError(null);
+
+      const loadedEntries = await fetchLogbookEntries(userId);
+      setEntries(loadedEntries || []);
+
+      const loadedKhata = await fetchKhataEntries(userId);
+      if (loadedKhata) setKhataEntries(loadedKhata);
+    } else {
+      // REAL AUTHENTICATED FIREBASE USER FLOW
+      setProfileStatus('LOADING');
+      setProfileError(null);
+      let profileFound = false;
+
+      // 1. Fetch from Firestore
+      if (isFirebaseConfigured && firestoreInstance) {
+        try {
+          const userDocRef = doc(firestoreInstance, 'users', userId);
+          const snap = await getDoc(userDocRef);
+          if (snap.exists()) {
+            const remoteProfile = snap.data() as UserProfile;
+            setProfile(remoteProfile);
+            profileFound = true;
+            setProfileStatus(
+              remoteProfile.onboardingCompleted && remoteProfile.location?.trim()
+                ? 'PROFILE_FOUND'
+                : 'PROFILE_NOT_FOUND'
+            );
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem(`ruralcred_profile_${userId}`, JSON.stringify(remoteProfile));
+                localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(remoteProfile));
+              } catch {}
+            }
+          }
+        } catch (e: any) {
+          console.warn('[Firestore] Profile fetch error for real user:', e);
+          const isPerm =
+            e?.code === 'permission-denied' ||
+            String(e?.message).toLowerCase().includes('permission') ||
+            String(e?.message).toLowerCase().includes('insufficient');
+          if (isPerm) {
+            setProfileStatus('PERMISSION_DENIED');
+            setProfileError('Firestore access was denied by security rules.');
+          } else {
+            setProfileStatus('NETWORK_ERROR');
+            setProfileError(e?.message || 'Failed to connect to Firestore.');
+          }
+        }
+      }
+
+      // 2. Fallback to local storage for THIS SPECIFIC USER UID (never demo personas)
+      if (!profileFound && typeof window !== 'undefined') {
+        const profileKey = `ruralcred_profile_${userId}`;
+        const cached = localStorage.getItem(profileKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed === 'object' && parsed.name) {
+              setProfile(parsed);
+              profileFound = true;
+              setProfileStatus(
+                parsed.onboardingCompleted && parsed.location?.trim()
+                  ? 'PROFILE_FOUND'
+                  : 'PROFILE_NOT_FOUND'
+              );
+            }
+          } catch {}
+        }
+      }
+
+      // 3. New Authenticated User clean initialization (Only if not in error state)
+      if (!profileFound) {
+        const realName = user?.name || user?.email?.split('@')[0] || 'Entrepreneur';
+        const freshProfile: UserProfile = {
+          name: realName,
+          businessName: `${realName} Enterprises`,
+          location: '',
+          category: 'Dairy Farming',
+          marginCapital: 0,
+          hasActiveLoan: false,
+          simulatingSecondLoan: false,
+          onboardingCompleted: false,
+        };
+        setProfile(freshProfile);
+
+        // If no explicit permission denied, mark as PROFILE_NOT_FOUND so onboarding renders
+        setProfileStatus((current) => (current === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'PROFILE_NOT_FOUND'));
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`ruralcred_profile_${userId}`, JSON.stringify(freshProfile));
+            localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(freshProfile));
+          } catch {}
+        }
+
+        if (isFirebaseConfigured && firestoreInstance) {
+          try {
+            const userDocRef = doc(firestoreInstance, 'users', userId);
+            await setDoc(userDocRef, {
+              ...freshProfile,
+              email: user?.email || '',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            }, { merge: true });
+          } catch (e) {
+            console.warn('[Firestore] Profile write error on fresh initialization:', e);
+          }
+        }
+      }
+
+      // 4. Fetch user-isolated logbook & khata (always isolated by UID)
+      const loadedEntries = await fetchLogbookEntries(userId);
+      setEntries(loadedEntries || []);
+
+      const loadedKhata = await fetchKhataEntries(userId);
+      setKhataEntries(loadedKhata || []);
+    }
   }, [userId, user]);
 
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
+
+  const retryLoadUserData = async () => {
+    await loadUserData();
+  };
+
   const updateProfile = async (updates: Partial<UserProfile>) => {
-    const next = {
+    const isCompleted = updates.onboardingCompleted !== undefined 
+      ? updates.onboardingCompleted 
+      : Boolean((updates.location || profile.location)?.trim() && (updates.name || profile.name)?.trim() && (updates.businessName || profile.businessName)?.trim());
+
+    const next: UserProfile = {
       ...profile,
       ...updates,
-      onboardingCompleted: updates.onboardingCompleted !== undefined ? updates.onboardingCompleted : (updates.location ? true : profile.onboardingCompleted),
+      onboardingCompleted: isCompleted,
     };
     setProfile(next);
+    if (isCompleted && (next.location || '').trim()) {
+      setProfileStatus('PROFILE_FOUND');
+      setProfileError(null);
+    }
 
     if (typeof window !== 'undefined') {
       localStorage.setItem(`ruralcred_profile_${userId}`, JSON.stringify(next));
       localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(next));
     }
 
-    if (isFirebaseConfigured && firestoreInstance && userId) {
+    const isDemoUser = Boolean(user?.isDemo || userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user');
+    if (isFirebaseConfigured && firestoreInstance && userId && !isDemoUser) {
       try {
         const userDocRef = doc(firestoreInstance, 'users', userId);
-        await setDoc(userDocRef, next, { merge: true });
-      } catch (e) {
+        await setDoc(userDocRef, {
+          ...next,
+          updatedAt: Date.now(),
+        }, { merge: true });
+      } catch (e: any) {
         console.warn('Failed to save profile to Firestore:', e);
+        if (e?.code === 'permission-denied') {
+          setProfileStatus('PERMISSION_DENIED');
+          setProfileError('Permission denied while saving profile to Firestore.');
+        }
       }
     }
   };
@@ -372,10 +504,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadPreset = (presetKey: 'dairy' | 'weaving' | 'kirana' | 'risk_case') => {
+    const isDemoUser = Boolean(user?.isDemo || userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user');
+    const realUserName = profile.name || user?.name || user?.email?.split('@')[0] || 'Entrepreneur';
+
     if (presetKey === 'dairy') {
       updateProfile({
-        name: 'Anita Sharma',
-        businessName: 'Sharma Dairy Farm',
+        name: isDemoUser ? 'Anita Sharma' : realUserName,
+        businessName: isDemoUser ? 'Sharma Dairy Farm' : `${realUserName} Dairy Farm`,
         location: 'Warangal, Telangana',
         category: 'Dairy Farming',
         marginCapital: 150000,
@@ -383,14 +518,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         simulatingSecondLoan: false,
         onboardingCompleted: true,
       });
-      setEntries(INITIAL_DEMO_ENTRIES);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`ruralcred_logbook_${userId}`, JSON.stringify(INITIAL_DEMO_ENTRIES));
+      if (isDemoUser) {
+        setEntries(INITIAL_DEMO_ENTRIES);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`ruralcred_logbook_${userId}`, JSON.stringify(INITIAL_DEMO_ENTRIES));
+        }
       }
     } else if (presetKey === 'weaving') {
       updateProfile({
-        name: 'Lakshmi Devi',
-        businessName: 'Lakshmi Handlooms & Textiles',
+        name: isDemoUser ? 'Lakshmi Devi' : realUserName,
+        businessName: isDemoUser ? 'Lakshmi Handlooms & Textiles' : `${realUserName} Handlooms & Textiles`,
         location: 'Nalgonda, Telangana',
         category: 'Handloom / Weaving',
         marginCapital: 30000,
@@ -398,14 +535,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         simulatingSecondLoan: false,
         onboardingCompleted: true,
       });
-      setEntries(INITIAL_WEAVING_ENTRIES);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`ruralcred_logbook_${userId}`, JSON.stringify(INITIAL_WEAVING_ENTRIES));
+      if (isDemoUser) {
+        setEntries(INITIAL_WEAVING_ENTRIES);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`ruralcred_logbook_${userId}`, JSON.stringify(INITIAL_WEAVING_ENTRIES));
+        }
       }
     } else if (presetKey === 'kirana') {
       updateProfile({
-        name: 'Ramesh Kumar',
-        businessName: 'Ramesh General & Kirana Store',
+        name: isDemoUser ? 'Ramesh Kumar' : realUserName,
+        businessName: isDemoUser ? 'Ramesh General & Kirana Store' : `${realUserName} General & Kirana Store`,
         location: 'Khammam, Telangana',
         category: 'Rural Grocery / Kirana',
         marginCapital: 50000,
@@ -413,9 +552,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         simulatingSecondLoan: false,
         onboardingCompleted: true,
       });
-      setEntries(INITIAL_KIRANA_ENTRIES);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`ruralcred_logbook_${userId}`, JSON.stringify(INITIAL_KIRANA_ENTRIES));
+      if (isDemoUser) {
+        setEntries(INITIAL_KIRANA_ENTRIES);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`ruralcred_logbook_${userId}`, JSON.stringify(INITIAL_KIRANA_ENTRIES));
+        }
       }
     } else if (presetKey === 'risk_case') {
       // Over-leverage and negative cash flow risk simulation
@@ -434,6 +575,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Scheme Selection & Simulation Handover (Bug #4)
+  const [selectedSchemeId, setSelectedSchemeId] = useState<string | null>(null);
+
   // Aggregate Logbook Totals
   const { totalIncome, totalExpenses, netCashFlow } = useMemo(() => {
     let inc = 0;
@@ -450,14 +594,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return calculateFinancePlan(profile.marginCapital);
   }, [profile.marginCapital]);
 
-  const localHealthScore = useMemo(() => {
-    return calculateFinancialHealthScore({
-      totalIncome,
-      totalExpenses,
-      entryCount: entries.length,
-      hasDownwardTrend: netCashFlow < 15000 && totalIncome > 0,
+  // Unified Deterministic 30/40/30 Alternative Credit Scoring Engine (Bug #6)
+  const localCreditReadiness: CreditReadinessResult = useMemo(() => {
+    const liquidBuffer = Math.round(localFinance.projectCost * 0.10);
+    const availableCash = Math.max(0, netCashFlow) + liquidBuffer;
+    return calculateCreditReadiness(entries, {
+      availableCashOverride: availableCash,
+      userName: profile.name,
+      businessName: profile.businessName,
     });
-  }, [totalIncome, totalExpenses, entries.length, netCashFlow]);
+  }, [entries, localFinance.projectCost, netCashFlow, profile.name, profile.businessName]);
+
+  const localHealthScore: FinancialHealthScoreResult = useMemo(() => {
+    const status: 'excellent' | 'steady' | 'needs_attention' =
+      localCreditReadiness.overallScore >= 80
+        ? 'excellent'
+        : localCreditReadiness.overallScore >= 60
+        ? 'steady'
+        : 'needs_attention';
+
+    return {
+      score: localCreditReadiness.overallScore,
+      status: status,
+      statusTe: localCreditReadiness.gradeTe,
+      summary: localCreditReadiness.summary,
+      summaryTe: localCreditReadiness.summaryTe,
+      loggingScore: localCreditReadiness.components.loggingScore,
+      profitTrendScore: localCreditReadiness.components.profitScore,
+      expenseRatioScore: localCreditReadiness.components.expenseDisciplineScore,
+      breakdown: [
+        {
+          label: 'Logging Consistency',
+          labelTe: 'లాగ్‌బుక్ స్థిరత్వం',
+          weight: '30%',
+          score: localCreditReadiness.components.loggingScore,
+        },
+        {
+          label: 'Profit Stability',
+          labelTe: 'లాభాల స్థిరత్వం',
+          weight: '40%',
+          score: localCreditReadiness.components.profitScore,
+        },
+        {
+          label: 'Expense Discipline',
+          labelTe: 'వ్యయ నియంత్రణ',
+          weight: '30%',
+          score: localCreditReadiness.components.expenseDisciplineScore,
+        },
+      ],
+    };
+  }, [localCreditReadiness]);
 
   const localDetectedRisks = useMemo(() => {
     return evaluateFinancialRisks({
@@ -473,6 +659,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Active States: Source of truth defaults to local fallback on mount, then updates from FastAPI backend
   const [finance, setFinance] = useState<FinanceAnalysisResult>(localFinance);
   const [healthScore, setHealthScore] = useState<FinancialHealthScoreResult>(localHealthScore);
+  const [creditReadiness, setCreditReadiness] = useState<CreditReadinessResult>(localCreditReadiness);
   const [detectedRisks, setDetectedRisks] = useState<DetectedRisk[]>(localDetectedRisks);
   const [backendMode, setBackendMode] = useState<BackendConnectionMode>('checking');
   const [backendLoading, setBackendLoading] = useState<boolean>(false);
@@ -483,9 +670,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (backendMode === 'local_fallback') {
       setFinance(localFinance);
       setHealthScore(localHealthScore);
+      setCreditReadiness(localCreditReadiness);
       setDetectedRisks(localDetectedRisks);
     }
-  }, [localFinance, localHealthScore, localDetectedRisks, backendMode]);
+  }, [localFinance, localHealthScore, localCreditReadiness, localDetectedRisks, backendMode]);
 
   // Asynchronously query FastAPI backend
   const refreshBackendData = useCallback(async () => {
@@ -559,12 +747,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setHealthScore(localHealthScore);
         }
 
+        setCreditReadiness(localCreditReadiness);
         setBackendMode('backend');
         setBackendError(null);
       } else {
         // Backend returned failure or unreachable -> fallback to local calculation
         setFinance(localFinance);
         setHealthScore(localHealthScore);
+        setCreditReadiness(localCreditReadiness);
         setDetectedRisks(localDetectedRisks);
         setBackendMode('local_fallback');
         setBackendError(financeRes.error || 'FastAPI backend server offline');
@@ -572,6 +762,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       setFinance(localFinance);
       setHealthScore(localHealthScore);
+      setCreditReadiness(localCreditReadiness);
       setDetectedRisks(localDetectedRisks);
       setBackendMode('local_fallback');
       setBackendError(err?.message || 'FastAPI backend connection error');
@@ -589,6 +780,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     userId,
     localFinance,
     localHealthScore,
+    localCreditReadiness,
     localDetectedRisks,
   ]);
 
@@ -632,9 +824,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         inputMode,
         setInputMode: handleSetInputMode,
         profile,
+        profileStatus,
+        profileError,
+        retryLoadUserData,
         updateProfile,
         loadPreset,
-        hasCompletedOnboarding: Boolean(profile.location && profile.onboardingCompleted !== false),
+        hasCompletedOnboarding: Boolean(
+          user?.isDemo ||
+          (profileStatus === 'PROFILE_FOUND' &&
+            profile &&
+            profile.name?.trim() &&
+            profile.businessName?.trim() &&
+            profile.location?.trim() &&
+            profile.onboardingCompleted === true)
+        ),
+        selectedSchemeId,
+        setSelectedSchemeId,
         entries,
         addNewEntry,
         updateEntry,
@@ -653,6 +858,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         totalExpenses,
         netCashFlow,
         healthScore,
+        creditReadiness: localCreditReadiness,
         detectedRisks,
         dictionary,
         backendMode,

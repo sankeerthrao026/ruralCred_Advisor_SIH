@@ -1,10 +1,16 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured, supabaseConfigError } from '@/lib/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
 import {
-  createDemoSession,
+  signInWithEmail,
+  signUpWithEmail,
+  signOutUser,
+  getFirebaseIdToken,
+  subscribeToFirebaseAuthState,
+} from '@/lib/firebase/auth';
+import { firestoreInstance, isFirebaseConfigured } from '@/lib/firebase/config';
+import { doc, setDoc } from 'firebase/firestore';
+import {
   createPresetSession,
   getDemoSession,
   clearDemoSession,
@@ -23,7 +29,7 @@ export interface AuthUser {
 
 export interface AuthContextType {
   user: AuthUser | null;
-  session: Session | null;
+  idToken: string | null;
   loading: boolean;
   isInitialized: boolean;
   error: string | null;
@@ -37,11 +43,9 @@ export interface AuthContextType {
   signUp: (email: string, password: string, name?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   loginAsDemoUser: (persona?: 'dairy' | 'kirana' | 'weaving') => Promise<void>;
+  getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
 }
 
-// When true or unset, the app keeps its convenient demo auth: preset personas,
-// demo user session creation, and local persona switching. When explicitly set to 'false',
-// the dummy fallbacks are disabled and real authentication is required.
 const DEMO_MODE_ENABLED = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,7 +59,7 @@ function getInitialUser(): AuthUser | null {
       return demo.user;
     }
 
-    // 2. Check stored authenticated/mock user
+    // 2. Check stored authenticated user
     const stored = localStorage.getItem(LOCAL_AUTH_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
@@ -74,28 +78,30 @@ function persistUser(user: AuthUser | null) {
       localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(user));
       if (user.isDemo) {
         localStorage.setItem(DEMO_USER_ID_KEY, user.id);
+      } else {
+        localStorage.removeItem(DEMO_USER_ID_KEY);
       }
     } else {
       localStorage.removeItem(LOCAL_AUTH_KEY);
       localStorage.removeItem(DEMO_USER_ID_KEY);
+      localStorage.removeItem(ACTIVE_PROFILE_KEY);
     }
   } catch {}
 }
 
-function mapSupabaseUser(user: User): AuthUser {
+function mapFirebaseUser(fbUser: any): AuthUser {
   return {
-    id: user.id,
-    email: user.email || '',
-    name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+    id: fbUser.uid,
+    email: fbUser.email || '',
+    name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Entrepreneur',
     isDemo: false,
     authMode: 'authenticated',
   };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Start with null and isInitialized: false for SSR / client-hydration consistency
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [idToken, setIdToken] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,11 +113,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (typeof window !== 'undefined' && Boolean(localStorage.getItem(DEMO_USER_ID_KEY)))
   );
 
-  // Load initial session on client mount and background check for optional Supabase
+  // Initialize and subscribe to Firebase Auth state changes
   useEffect(() => {
     let active = true;
 
-    // 1. Initialize user from localStorage / active demo session
+    // 1. Initialize from localStorage
     const initialUser = getInitialUser();
     if (initialUser && active) {
       setUser(initialUser);
@@ -120,196 +126,118 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsInitialized(true);
     }
 
-    async function checkBackgroundSupabaseSession() {
-      // If user is already in demo mode, do not override with Supabase
-      const hasDemoSession = typeof window !== 'undefined' && localStorage.getItem(DEMO_USER_ID_KEY);
-      if (hasDemoSession) return;
+    // 2. Subscribe to Firebase Auth
+    const unsubscribe = subscribeToFirebaseAuthState(async (fbUser) => {
+      if (!active) return;
+      const hasDemoSession = typeof window !== 'undefined' && Boolean(localStorage.getItem(DEMO_USER_ID_KEY));
 
-      if (isSupabaseConfigured && supabase) {
-        try {
-          const { data } = await supabase.auth.getSession();
-          if (active && data.session?.user) {
-            const u = mapSupabaseUser(data.session.user);
-            setSession(data.session);
-            setUser(u);
-            persistUser(u);
-          }
-        } catch (e) {
-          console.debug('[Auth] Optional Supabase background check:', e);
+      if (fbUser) {
+        // Active Firebase authenticated user
+        const mapped = mapFirebaseUser(fbUser);
+        const token = await getFirebaseIdToken();
+        if (active) {
+          setUser(mapped);
+          setIdToken(token);
+          persistUser(mapped);
+        }
+      } else if (!hasDemoSession) {
+        // No Firebase user and not in demo mode -> reset state
+        if (active) {
+          setUser(null);
+          setIdToken(null);
+          persistUser(null);
         }
       }
-    }
-
-    checkBackgroundSupabaseSession();
-
-    let unsubscribe: (() => void) | null = null;
-    if (isSupabaseConfigured && supabase) {
-      const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
-        if (!active) return;
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (newSession?.user) {
-            const u = mapSupabaseUser(newSession.user);
-            setSession(newSession);
-            setUser(u);
-            persistUser(u);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          // Do not wipe session if user is in demo mode
-          const inDemo = typeof window !== 'undefined' && Boolean(localStorage.getItem(DEMO_USER_ID_KEY));
-          if (!inDemo) {
-            setSession(null);
-            setUser(null);
-            persistUser(null);
-          }
-        }
-      });
-
-      unsubscribe = () => {
-        authListener.subscription.unsubscribe();
-      };
-    }
+    });
 
     return () => {
       active = false;
-      if (unsubscribe) unsubscribe();
+      unsubscribe();
     };
   }, []);
 
-  // 1. Primary Action: Continue as Demo User (instantaneous dummy session with complete data)
+  // 1. Explicit Action: Continue as Demo User (Anita Sharma)
   const continueAsDemo = useCallback((): AuthUser => {
     const { user: demoUser } = createPresetSession('dairy');
     setUser(demoUser);
+    setIdToken(null);
     persistUser(demoUser);
     setError(null);
     setLoading(false);
     return demoUser;
   }, []);
 
-  // 2. Exit Demo: Clears demo session and returns to Welcome / Entry Screen
+  // 2. Explicit Action: Exit Demo
   const exitDemo = useCallback(() => {
     clearDemoSession();
     setUser(null);
-    setSession(null);
+    setIdToken(null);
     persistUser(null);
     setError(null);
     setLoading(false);
   }, []);
 
-  // 3. Pre-configured Evaluator Demo Personas
+  // 3. Explicit Action: Pre-configured Evaluator Demo Personas
   const loginAsDemoUser = async (persona: 'dairy' | 'kirana' | 'weaving' = 'dairy') => {
     const { user: chosen } = createPresetSession(persona);
     setUser(chosen);
+    setIdToken(null);
     persistUser(chosen);
     setError(null);
     setLoading(false);
   };
 
-  // 4. Dummy & Supabase Sign In
+  // 4. Real Firebase Sign In
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
     setLoading(true);
     setError(null);
     const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
 
-    if (!DEMO_MODE_ENABLED) {
-      if (!cleanEmail || !password.trim()) {
+    if (!cleanEmail || !cleanPassword) {
+      setLoading(false);
+      const msg = 'Please enter your email and password.';
+      setError(msg);
+      return { error: msg };
+    }
+
+    if (!isFirebaseConfigured) {
+      setLoading(false);
+      const msg = 'Firebase Authentication is not configured. Please check environment variables.';
+      setError(msg);
+      return { error: msg };
+    }
+
+    try {
+      const { user: fbUser, error: fbError } = await signInWithEmail(cleanEmail, cleanPassword);
+      if (fbError || !fbUser) {
         setLoading(false);
-        return { error: 'Please enter your email and password.' };
+        setError(fbError || 'Failed to sign in.');
+        return { error: fbError || 'Failed to sign in.' };
       }
-    }
 
-    // 1. Direct dummy profile matching (demo mode only):
-    const lowerEmail = cleanEmail.toLowerCase();
-    let persona: 'dairy' | 'kirana' | 'weaving' | null = null;
-    if (DEMO_MODE_ENABLED) {
-      if (lowerEmail.includes('anita') || lowerEmail.includes('dairy')) {
-        persona = 'dairy';
-      } else if (lowerEmail.includes('ramesh') || lowerEmail.includes('kirana')) {
-        persona = 'kirana';
-      } else if (lowerEmail.includes('lakshmi') || lowerEmail.includes('weaving') || lowerEmail.includes('handloom')) {
-        persona = 'weaving';
+      // Successful Firebase Authentication
+      clearDemoSession();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(ACTIVE_PROFILE_KEY);
+        localStorage.removeItem(DEMO_USER_ID_KEY);
       }
-    }
-
-    if (persona) {
-      const { user: chosen } = createPresetSession(persona);
-      setUser(chosen);
-      persistUser(chosen);
+      const mapped = mapFirebaseUser(fbUser);
+      const token = await getFirebaseIdToken();
+      setUser(mapped);
+      setIdToken(token);
+      persistUser(mapped);
       setLoading(false);
       return { error: null };
-    }
-
-    // 2. If Supabase is configured and not a preset email, try Supabase with immediate local fallback:
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 2500)
-        );
-
-        const { data, error: signInErr } = (await Promise.race([
-          supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password: password || 'demo123',
-          }),
-          timeoutPromise,
-        ])) as any;
-
-        if (!signInErr && data?.user) {
-          const u = mapSupabaseUser(data.user);
-          setUser(u);
-          persistUser(u);
-          if (data.session) setSession(data.session);
-          setLoading(false);
-          return { error: null };
-        }
-      } catch (e) {
-        console.warn('[Auth] Supabase attempt bypassed for local dummy session:', e);
-      }
-    }
-
-    // 3. Robust Dummy Auth: ANY other email logs in immediately as an active dummy user!
-    //    (Demo mode only — outside demo mode the dummy fallback is disabled.)
-    if (!DEMO_MODE_ENABLED) {
+    } catch (e: any) {
       setLoading(false);
-      return { error: 'Sign-in is unavailable. Enable NEXT_PUBLIC_DEMO_MODE=true for demo auth or configure a real auth provider.' };
+      const msg = e?.message || 'Authentication failed.';
+      setError(msg);
+      return { error: msg };
     }
-
-    const mockId = `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const displayName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ') || 'Anita Sharma';
-    const formattedName = displayName.replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const newUser: AuthUser = {
-      id: mockId,
-      email: cleanEmail,
-      name: formattedName,
-      isDemo: true,
-      authMode: 'demo',
-    };
-
-    const defaultProfile = {
-      name: formattedName,
-      businessName: `${formattedName} Enterprises`,
-      location: 'Warangal, Telangana',
-      category: 'Dairy Farming',
-      marginCapital: 100000,
-      hasActiveLoan: false,
-      simulatingSecondLoan: false,
-      onboardingCompleted: true,
-    };
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DEMO_USER_ID_KEY, mockId);
-      localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(newUser));
-      localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(defaultProfile));
-      localStorage.setItem(`ruralcred_profile_${mockId}`, JSON.stringify(defaultProfile));
-    }
-
-    setUser(newUser);
-    persistUser(newUser);
-    setLoading(false);
-    return { error: null };
   };
 
-  // 5. Dummy & Supabase Sign Up
+  // 5. Real Firebase Sign Up
   const signUp = async (
     email: string,
     password: string,
@@ -318,94 +246,117 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError(null);
     const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+    const chosenName = name?.trim() || cleanEmail.split('@')[0] || 'Entrepreneur';
 
-    if (!cleanEmail) {
+    if (!cleanEmail || !cleanPassword) {
       setLoading(false);
-      return { error: 'Please fill in your email.' };
+      const msg = 'Please enter an email and password.';
+      setError(msg);
+      return { error: msg };
     }
 
-    if (!DEMO_MODE_ENABLED && !password.trim()) {
+    if (!isFirebaseConfigured) {
       setLoading(false);
-      return { error: 'Please enter a password.' };
+      const msg = 'Firebase Authentication is not configured. Please check environment variables.';
+      setError(msg);
+      return { error: msg };
     }
 
-    if (!DEMO_MODE_ENABLED) {
+    try {
+      const { user: fbUser, error: fbError } = await signUpWithEmail(cleanEmail, cleanPassword, chosenName);
+      if (fbError || !fbUser) {
+        setLoading(false);
+        setError(fbError || 'Registration failed.');
+        return { error: fbError || 'Registration failed.' };
+      }
+
+      // Successful Firebase Registration
+      clearDemoSession();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(ACTIVE_PROFILE_KEY);
+        localStorage.removeItem(DEMO_USER_ID_KEY);
+      }
+      const mapped = mapFirebaseUser(fbUser);
+      const token = await getFirebaseIdToken();
+
+      // Initialize real user's profile in Firestore
+      if (firestoreInstance) {
+        try {
+          const userDocRef = doc(firestoreInstance, 'users', fbUser.uid);
+          const initialProfile = {
+            name: chosenName,
+            businessName: `${chosenName} Enterprises`,
+            location: '',
+            category: 'Dairy Farming',
+            marginCapital: 0,
+            hasActiveLoan: false,
+            simulatingSecondLoan: false,
+            onboardingCompleted: false,
+            email: cleanEmail,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+          await setDoc(userDocRef, initialProfile, { merge: true });
+        } catch (fsErr) {
+          console.warn('[Auth] Initial Firestore profile setup:', fsErr);
+        }
+      }
+
+      setUser(mapped);
+      setIdToken(token);
+      persistUser(mapped);
       setLoading(false);
-      return { error: 'Account creation is unavailable. Enable NEXT_PUBLIC_DEMO_MODE=true for demo registration or configure a real auth provider.' };
+      return { error: null };
+    } catch (e: any) {
+      setLoading(false);
+      const msg = e?.message || 'Registration failed.';
+      setError(msg);
+      return { error: msg };
     }
-
-    const mockId = `usr_${Date.now()}_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const chosenName = name?.trim() || cleanEmail.split('@')[0].replace(/[._-]/g, ' ') || 'Rural Entrepreneur';
-    const formattedName = chosenName.replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const newUser: AuthUser = {
-      id: mockId,
-      email: cleanEmail,
-      name: formattedName,
-      isDemo: true,
-      authMode: 'demo',
-    };
-
-    const newProfile = {
-      name: formattedName,
-      businessName: `${formattedName} Enterprises`,
-      location: 'Warangal, Telangana',
-      category: 'Dairy Farming',
-      marginCapital: 100000,
-      hasActiveLoan: false,
-      simulatingSecondLoan: false,
-      onboardingCompleted: true,
-    };
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DEMO_USER_ID_KEY, mockId);
-      localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(newUser));
-      localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(newProfile));
-      localStorage.setItem(`ruralcred_profile_${mockId}`, JSON.stringify(newProfile));
-    }
-
-    setUser(newUser);
-    persistUser(newUser);
-    setLoading(false);
-    return { error: null };
   };
 
   // 6. Sign Out
   const signOut = async (): Promise<void> => {
     setLoading(true);
-    if (isSupabaseConfigured && supabase) {
+    if (isFirebaseConfigured) {
       try {
-        await supabase.auth.signOut();
+        await signOutUser();
       } catch (e) {
-        console.warn('[Auth] Signout error:', e);
+        console.warn('[Auth] Firebase signout error:', e);
       }
     }
     clearDemoSession();
     setUser(null);
-    setSession(null);
+    setIdToken(null);
     persistUser(null);
     setError(null);
     setLoading(false);
+  };
+
+  const getIdTokenWrapper = async (forceRefresh: boolean = false): Promise<string | null> => {
+    return await getFirebaseIdToken(forceRefresh);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        session,
+        idToken,
         loading,
         isInitialized,
         error,
-        isConfigured: isSupabaseConfigured,
+        isConfigured: isFirebaseConfigured,
         isDemo,
         demoModeEnabled: DEMO_MODE_ENABLED,
-        configError: supabaseConfigError,
+        configError: null,
         continueAsDemo,
         exitDemo,
         signIn,
         signUp,
         signOut,
         loginAsDemoUser,
+        getIdToken: getIdTokenWrapper,
       }}
     >
       {children}

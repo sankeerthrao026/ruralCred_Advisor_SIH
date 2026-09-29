@@ -1,5 +1,5 @@
 import { firestoreInstance, isFirebaseConfigured } from './config';
-import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, orderBy, setDoc } from 'firebase/firestore';
 
 export interface LogbookEntry {
   id: string;
@@ -231,19 +231,29 @@ export const INITIAL_WEAVING_ENTRIES: LogbookEntry[] = [
 const getStorageKey = (userId: string) => `ruralcred_logbook_${userId}`;
 
 export async function fetchLogbookEntries(userId: string): Promise<LogbookEntry[]> {
-  if (!userId) return INITIAL_DEMO_ENTRIES;
+  if (!userId) return [];
 
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
   const lowerId = userId.toLowerCase();
 
-  // If Firestore configured and online, attempt to fetch from user's isolated subcollection
-  if (isFirebaseConfigured && firestoreInstance) {
+  // If Firestore configured and online, attempt to fetch from user's isolated subcollection (real users only)
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
     try {
       const colRef = collection(firestoreInstance, `users/${userId}/logbook`);
       const q = query(colRef, orderBy('timestamp', 'desc'));
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as LogbookEntry));
+        const remote = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as LogbookEntry));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(getStorageKey(userId), JSON.stringify(remote));
+        }
+        return remote;
       }
+      // If Firestore collection is empty and this is a real user, return empty array
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(getStorageKey(userId), JSON.stringify([]));
+      }
+      return [];
     } catch (e) {
       console.warn('Firestore fetch failed, using local storage cache:', e);
     }
@@ -256,13 +266,18 @@ export async function fetchLogbookEntries(userId: string): Promise<LogbookEntry[
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       } catch (e) {}
     }
+
+    // Real users start with an empty logbook
+    if (!isDemoUser) {
+      return [];
+    }
     
-    // Seed appropriate demo entries for the persona
+    // Seed appropriate demo entries only for demo personas
     if (lowerId.includes('kirana') || lowerId.includes('ramesh')) {
       localStorage.setItem(key, JSON.stringify(INITIAL_KIRANA_ENTRIES));
       return INITIAL_KIRANA_ENTRIES;
@@ -271,11 +286,12 @@ export async function fetchLogbookEntries(userId: string): Promise<LogbookEntry[
       localStorage.setItem(key, JSON.stringify(INITIAL_WEAVING_ENTRIES));
       return INITIAL_WEAVING_ENTRIES;
     }
-    // Default demo entries for anita or generic demo users
+    // Default demo entries for anita
     localStorage.setItem(key, JSON.stringify(INITIAL_DEMO_ENTRIES));
     return INITIAL_DEMO_ENTRIES;
   }
 
+  if (!isDemoUser) return [];
   if (lowerId.includes('kirana') || lowerId.includes('ramesh')) {
     return INITIAL_KIRANA_ENTRIES;
   }
@@ -295,8 +311,9 @@ export async function addLogbookEntry(
   };
 
   if (!userId) return newEntry;
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
 
-  if (isFirebaseConfigured && firestoreInstance) {
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
     try {
       const colRef = collection(firestoreInstance, `users/${userId}/logbook`);
       const docRef = await addDoc(colRef, { ...entry });
@@ -318,8 +335,9 @@ export async function addLogbookEntry(
 
 export async function deleteLogbookEntry(id: string, userId: string): Promise<void> {
   if (!userId) return;
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
 
-  if (isFirebaseConfigured && firestoreInstance) {
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
     try {
       await deleteDoc(doc(firestoreInstance, `users/${userId}/logbook`, id));
     } catch (e) {
@@ -337,8 +355,9 @@ export async function deleteLogbookEntry(id: string, userId: string): Promise<vo
 
 export async function updateLogbookEntry(entry: LogbookEntry, userId: string): Promise<LogbookEntry> {
   if (!userId) return entry;
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
 
-  if (isFirebaseConfigured && firestoreInstance) {
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
     try {
       const { id, ...fields } = entry;
       await updateDoc(doc(firestoreInstance, `users/${userId}/logbook`, id), fields);
@@ -363,21 +382,54 @@ function getKhataStorageKey(userId: string) {
 }
 
 export async function fetchKhataEntries(userId: string): Promise<KhataEntry[]> {
-  if (typeof window === 'undefined') return INITIAL_KHATA_ENTRIES;
+  if (!userId) return [];
+
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
+
+  // If Firestore configured and online, attempt to fetch from user's isolated khata subcollection (real users only)
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
+    try {
+      const colRef = collection(firestoreInstance, `users/${userId}/khata`);
+      const q = query(colRef, orderBy('timestamp', 'desc'));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const remoteEntries = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as KhataEntry));
+        if (typeof window !== 'undefined') {
+          const key = getKhataStorageKey(userId);
+          localStorage.setItem(key, JSON.stringify(remoteEntries));
+        }
+        return remoteEntries;
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(getKhataStorageKey(userId), JSON.stringify([]));
+      }
+      return [];
+    } catch (e) {
+      console.warn('Firestore khata fetch failed, using local storage cache:', e);
+    }
+  }
+
+  if (typeof window === 'undefined') return isDemoUser ? INITIAL_KHATA_ENTRIES : [];
 
   const key = getKhataStorageKey(userId);
   const stored = localStorage.getItem(key);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
     } catch (e) {
       console.warn('Failed to parse local khata:', e);
     }
   }
 
+  if (!isDemoUser) return [];
+
   localStorage.setItem(key, JSON.stringify(INITIAL_KHATA_ENTRIES));
   return INITIAL_KHATA_ENTRIES;
 }
+
 
 export async function saveKhataEntry(
   entry: Omit<KhataEntry, 'id' | 'paidAmount' | 'status' | 'payments' | 'timestamp'>,
@@ -392,10 +444,22 @@ export async function saveKhataEntry(
     timestamp: Date.now(),
   };
 
+  if (!userId) return newKhata;
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
+
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
+    try {
+      const docRef = doc(firestoreInstance, `users/${userId}/khata`, newKhata.id);
+      await setDoc(docRef, newKhata);
+    } catch (e) {
+      console.warn('Firestore khata write failed, preserving to local storage:', e);
+    }
+  }
+
   if (typeof window !== 'undefined') {
     const key = getKhataStorageKey(userId);
     const current = await fetchKhataEntries(userId);
-    const updated = [newKhata, ...current];
+    const updated = [newKhata, ...current.filter((k) => k.id !== newKhata.id)];
     localStorage.setItem(key, JSON.stringify(updated));
   }
 
@@ -409,9 +473,9 @@ export async function recordKhataPayment(
   note: string | undefined,
   userId: string
 ): Promise<KhataEntry | null> {
-  if (typeof window === 'undefined') return null;
+  if (!userId) return null;
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
 
-  const key = getKhataStorageKey(userId);
   const current = await fetchKhataEntries(userId);
   let updatedEntry: KhataEntry | null = null;
 
@@ -440,11 +504,36 @@ export async function recordKhataPayment(
     return k;
   });
 
-  localStorage.setItem(key, JSON.stringify(updated));
+  if (updatedEntry && isFirebaseConfigured && firestoreInstance && !isDemoUser) {
+    try {
+      const docRef = doc(firestoreInstance, `users/${userId}/khata`, khataId);
+      await setDoc(docRef, updatedEntry, { merge: true });
+    } catch (e) {
+      console.warn('Firestore khata payment update failed:', e);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    const key = getKhataStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(updated));
+  }
+
   return updatedEntry;
 }
 
 export async function updateKhataEntry(entry: KhataEntry, userId: string): Promise<KhataEntry> {
+  if (!userId) return entry;
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
+
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
+    try {
+      const docRef = doc(firestoreInstance, `users/${userId}/khata`, entry.id);
+      await setDoc(docRef, entry, { merge: true });
+    } catch (e) {
+      console.warn('Firestore khata update failed:', e);
+    }
+  }
+
   if (typeof window !== 'undefined') {
     const key = getKhataStorageKey(userId);
     const current = await fetchKhataEntries(userId);
@@ -455,6 +544,17 @@ export async function updateKhataEntry(entry: KhataEntry, userId: string): Promi
 }
 
 export async function deleteKhataEntry(id: string, userId: string): Promise<void> {
+  if (!userId) return;
+  const isDemoUser = userId.startsWith('demo-') || userId.startsWith('demo_') || userId === 'demo-user';
+
+  if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
+    try {
+      await deleteDoc(doc(firestoreInstance, `users/${userId}/khata`, id));
+    } catch (e) {
+      console.warn('Firestore khata delete failed:', e);
+    }
+  }
+
   if (typeof window !== 'undefined') {
     const key = getKhataStorageKey(userId);
     const current = await fetchKhataEntries(userId);
@@ -462,4 +562,5 @@ export async function deleteKhataEntry(id: string, userId: string): Promise<void
     localStorage.setItem(key, JSON.stringify(updated));
   }
 }
+
 

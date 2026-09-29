@@ -170,194 +170,252 @@ class BusinessCalculationEngine:
         fallback_category: str = "Dairy Farming"
     ) -> Dict[str, Any]:
         """
-        Classifies query intent deterministically.
+        Classifies query intent using the unified SemanticIntentEngine.
         Returns:
           {
             "intent": str,
             "targetAmount": Optional[float],
+            "inputUnits": Optional[float],
+            "unitEntity": Optional[str],
             "isNumerical": bool,
             "entity": Optional[str],
             "timeframe": str ("annual" | "monthly" | "daily"),
-            "domain": str
+            "domain": str,
+            "numericEntities": List[Dict[str, Any]],
+            "searchTargetValue": Optional[float],
+            "previousAnswerValue": Optional[float],
+            "comparisonValues": Optional[List[float]],
           }
         """
+        from app.services.intent_orchestrator import intent_orchestrator, SemanticIntent
+
         detected_domain = detect_business_domain(
             query=query,
             history=history,
             fallback_category=fallback_category
         )
 
-        if not query:
-            return {
-                "intent": "general_advisory",
-                "targetAmount": None,
-                "isNumerical": False,
-                "entity": None,
-                "timeframe": "annual",
-                "domain": detected_domain,
-            }
+        res = intent_orchestrator.classify_agent1_intent(
+            query=query,
+            history=history,
+            fallback_category=fallback_category
+        )
 
-        q = query.lower().strip()
-        target_amt = parse_target_amount(q)
-
-        # Detect timeframe
+        q = (query or "").lower().strip()
         is_monthly = any(w in q for w in ["month", "monthly", "నెల", "నెలకు", "మాసం", "प्रति माह"])
         is_daily = any(w in q for w in ["day", "daily", "రోజు", "రోజుకు", "రోజూ", "प्रति दिन"])
         timeframe = "daily" if is_daily else ("monthly" if is_monthly else "annual")
 
-        # 1. Location Selection / Business Location Analysis (HIGH PRIORITY)
-        # e.g. "Suggest me places where if I establish my handloom shop I can get great profits",
-        # "which localities can give me the best profits", "where should I open my shop"
-        is_location_selection = any(w in q for w in [
-            "where should i establish", "where can i establish", "where should i open", "where can i open",
-            "where should i start", "where to establish", "where to open", "where to set up", "where to start",
-            "suggest me places", "suggest places", "suggest some places", "which localities", "which locality",
-            "which area", "which location", "best locations", "best location", "best localities", "best place",
-            "best places", "good location", "good place", "profitable location", "where i can get great profits",
-            "where if i establish", "which area is better", "suitable location", "cluster", "location for my",
-            "place for my", "where to locate", "area for my", "localities can give", "places where",
-            "which areas", "best suitable", "suitable to open", "suitable to start",
-            "ఎక్కడ ప్రారంభించాలి", "ఎక్కడ పెట్టాలి", "ఎక్కడ స్థాపించాలి", "ఏ ప్రాంతం", "ఏ ప్రాంతాలు", "ప్రాంతాలు", "ఏ ప్రదేశాలు",
-            "స్థలాలు", "మంచి ప్రదేశం", "లొకేషన్", "ఏ ఊరు", "ప్రదేశం", "స్థలం ఎంపిక", "ఏ ఏరియా", "ప్రదేశాలు",
-            "అనువైన ప్రాంతాలు", "అనువైన స్థలాలు", "అనువైన స్థలం"
-        ])
-
-        # 2. Feed / Raw Material / Input Sourcing (Check before generic buy/invest)
-        is_feed = any(w in q for w in [
-            "feed", "fodder", "raw material", "input cost", "cost of feed", "yarn", "fabric", "daana", "దాణా",
-            "పచ్చిగడ్డి", "ముడిసరుకు", "తక్కువ ఖర్చు", "నూలు", "చౌకగా", "buy feed", "cheaper"
-        ])
-
-        # 3. Investment Decision / Asset Purchase (e.g. AC, machine, equipment, vehicle)
-        is_investment_decision = (not is_feed) and any(w in q for w in [
-            "should i buy", "can i buy", "want to buy", "is that a good investment", "good investment",
-            "is it safe to buy", "safe for me to buy", "is it safe to invest", "worth buying", "worth investing",
-            "air conditioner", "buy an ac", "buy a machine", "buy equipment", "కొనవచ్చా", "మంచి పెట్టుబడేనా"
-        ])
-
-        # 4. Capacity / Quantity needed calculation
-        is_quantity_calc = any(w in q for w in [
-            "how many", "how much animal", "number of", "ఎన్ని ఆవులు", "ఎన్ని బర్రెలు", "ఎన్ని కోళ్లు", "ఎన్ని మగ్గాలు",
-            "ఎన్ని", "కౌస్", "ఆవులు కావాలి", "బర్రెలు కావాలి", "how many cows", "how many buffalo", "how many birds",
-            "how many looms", "how much capacity", "cows do i need", "buffaloes do i need"
-        ])
-
-        # 5. Profitability / Expected profit
-        is_profit_inquiry = any(w in q for w in [
-            "how much profit", "my profit", "expected profit", "profit margin", "what profit",
-            "net profit", "income of", "earning", "earnings", "లాభం ఎంత", "నికర లాభం", "ఎంత లాభం",
-            "సంపాదన", "मुनाफा कितना"
-        ])
-
-        # 6. Break-even calculation
-        is_break_even = any(w in q for w in [
-            "break even", "break-even", "breakeven", "నో లాస్ నో ప్రాఫిట్", "బ్రేక్ ఈవెన్", "ఖర్చులు రాబట్టడం", "समविच्छेद"
-        ])
-
-        # 7. Revenue / Volume target calculation
-        is_volume_target = any(w in q for w in [
-            "how much milk", "milk do i need to sell", "how much sales", "volume to sell", "how much turnover",
-            "ఎంత పాలు", "ఎన్ని లీటర్లు", "ఎంత అమ్మాలి", "అమ్మకాలు ఎంత చేయాలి"
-        ])
-
-        # 8. Capital / Expansion requirements
-        is_expansion_calc = any(w in q for w in [
-            "expand", "expansion", "expanding", "next village", "scale up", "capital do i need",
-            "cost to expand", "investment to expand", "how much capital", "విస్తరణ ఖర్చు",
-            "పెట్టుబడి ఎంత కావాలి", "మరో 2 ఆవులు కొనడానికి", "ఎంత పెట్టుబడి", "విస్తరించడానికి", "విస్తరణ"
-        ])
-
-        # 9. Pricing guidance
-        is_pricing = any(w in q for w in [
-            "pricing", "selling price", "rate per", "cost per", "ధర", "ఎంత అమ్మాలి", "ధర నిర్ణయం", "రేటు", "కిలో ధర"
-        ])
-
-        # 10. Government schemes
-        is_schemes = any(w in q for w in [
-            "scheme", "subsidy", "subsidies", "government", "mudra", "pmegp", "nbcfdc", "vishwakarma", "stand-up",
-            "సబ్సిడీ", "పథకం", "ప్రభుత్వ పథకాలు", "రాయితీ"
-        ])
-
-        # 11. Summer heat / Seasonal operational advice
-        is_summer_heat = any(w in q for w in [
-            "summer", "heat", "hot", "yield in summer", "temperature", "weather", "lean season", "flush season",
-            "ఎండ", "వేసవి", "దిగుబడి", "గ్రామాలలో"
-        ])
-
-        # 12. Cash flow / Customer credit management
-        is_cash_flow = any(w in q for w in [
-            "cash flow", "low sales", "lean month", "off-season", "working capital", "udhaari", "credit", "బాకీలు",
-            "నగదు", "తక్కువ అమ్మకాలు", "ఖర్చులు"
-        ])
-
-        # Intent resolution priority
-        if is_location_selection:
-            intent = "location_selection"
-            is_num = False
-        elif is_investment_decision:
-            intent = "investment_decision"
-            is_num = False
-        elif is_quantity_calc and (target_amt or is_profit_inquiry):
-            intent = "capacity_calculation"
-            is_num = True
-        elif is_volume_target and target_amt:
-            intent = "volume_target_calculation"
-            is_num = True
-        elif is_break_even:
-            intent = "break_even_calculation"
-            is_num = True
-        elif is_expansion_calc:
-            intent = "expansion_capital_calculation"
-            is_num = True
-        elif is_profit_inquiry and target_amt:
-            intent = "capacity_calculation"
-            is_num = True
-        elif is_profit_inquiry:
-            intent = "profitability_calculation"
-            is_num = True
-        elif is_feed:
-            intent = "raw_material_optimization"
-            is_num = False
-        elif is_pricing:
-            intent = "pricing_guidance"
-            is_num = False
-        elif is_schemes:
-            intent = "government_schemes"
-            is_num = False
-        elif is_summer_heat:
-            intent = "seasonal_operational_advice"
-            is_num = False
-        elif is_cash_flow:
-            intent = "cash_flow_optimization"
-            is_num = False
-        elif target_amt:
-            intent = "capacity_calculation"
-            is_num = True
-        else:
-            intent = "general_advisory"
-            is_num = False
-
         # Entity identification
-        entity = None
-        if any(w in q for w in ["cow", "cows", "ఆవు", "ఆవులు"]):
-            entity = "cow"
-        elif any(w in q for w in ["buffalo", "buffaloes", "బర్రె", "గేదె", "బర్రెలు"]):
-            entity = "buffalo"
-        elif any(w in q for w in ["bird", "birds", "hen", "hens", "chicken", "కోళ్లు", "కోడి"]):
-            entity = "bird"
-        elif any(w in q for w in ["loom", "looms", "మగ్గం", "మగ్గాలు"]):
-            entity = "loom"
-        elif any(w in q for w in ["milk", "litre", "litres", "పాలు", "లీటర్లు"]):
-            entity = "milk_litre"
+        entity = res.get("unitEntity")
+        if not entity:
+            if any(w in q for w in ["cow", "cows", "ఆవు", "ఆవులు"]):
+                entity = "cow"
+            elif any(w in q for w in ["buffalo", "buffaloes", "బర్రె", "గేదె", "బర్రెలు"]):
+                entity = "buffalo"
+            elif any(w in q for w in ["bird", "birds", "hen", "hens", "chicken", "కోళ్లు", "కోడి"]):
+                entity = "bird"
+            elif any(w in q for w in ["loom", "looms", "మగ్గం", "మగ్గాలు"]):
+                entity = "loom"
+            elif any(w in q for w in ["milk", "litre", "litres", "పాలు", "లీటర్లు"]):
+                entity = "milk_litre"
+
+        num_entities = res.get("numericEntities", [])
+        primary_role = "UNKNOWN"
+        if num_entities:
+            # Pick the non-unknown role if available
+            specific_role = next((n["role"] for n in num_entities if n.get("role") != "UNKNOWN"), None)
+            primary_role = specific_role or num_entities[0].get("role", "UNKNOWN")
+        elif res.get("intent") == SemanticIntent.RETRIEVAL_EVIDENCE.value:
+            primary_role = "SEARCH_TARGET_VALUE"
+        elif res.get("intent") == SemanticIntent.PROVENANCE.value:
+            primary_role = "PREVIOUS_ANSWER_VALUE"
+        elif res.get("intent") == SemanticIntent.COMPARISON.value:
+            primary_role = "COMPARISON_VALUE"
+        elif res.get("intent") == SemanticIntent.FORWARD_UNIT_CALCULATION.value:
+            primary_role = "INPUT_PARAMETER"
+        elif res.get("intent") == SemanticIntent.CAPACITY_CALCULATION.value:
+            primary_role = "TARGET_PROFIT"
+
+        target_amount = res.get("targetAmount")
+        input_units = res.get("inputUnits")
 
         return {
-            "intent": intent,
-            "targetAmount": target_amt,
-            "isNumerical": is_num,
+            "intent": res.get("intent", SemanticIntent.GENERAL_ADVISORY.value),
+            "targetAmount": target_amount,
+            "target_amount": target_amount,
+            "inputUnits": input_units,
+            "input_units": input_units,
+            "unitEntity": entity,
+            "unit_entity": entity,
+            "isNumerical": res.get("isNumerical", False),
+            "is_numerical": res.get("isNumerical", False),
             "entity": entity,
             "timeframe": timeframe,
             "domain": detected_domain,
+            "numericEntities": num_entities,
+            "numeric_entities": num_entities,
+            "primaryRole": primary_role,
+            "primary_role": primary_role,
+            "searchTargetValue": res.get("searchTargetValue"),
+            "search_target_value": res.get("searchTargetValue"),
+            "previousAnswerValue": res.get("previousAnswerValue"),
+            "previous_answer_value": res.get("previousAnswerValue"),
+            "comparisonValues": res.get("comparisonValues"),
+            "comparison_values": res.get("comparisonValues"),
+            "confidence": res.get("confidence", 0.9),
+            "reasoning": res.get("reasoning", ""),
         }
+
+    @staticmethod
+    def calculate_forward_unit_profit(
+        category: str,
+        unit_count: float,
+        location: str = "Telangana",
+        promoter_margin_capital: float = 100000.0,
+        timeframe: str = "annual",
+    ) -> Dict[str, Any]:
+        """
+        Deterministically calculates the gross revenue, operating costs, and net profit
+        generated from an input quantity of units/animals (e.g. 10 cows, 5 looms, 500 birds).
+        """
+        cat_lower = (category or "").lower()
+        units = max(1.0, float(unit_count if unit_count and unit_count > 0 else 1.0))
+
+        if "dairy" in cat_lower or "పాడి" in cat_lower or "cow" in cat_lower or "milk" in cat_lower:
+            yield_per_day_per_cow = 10.0
+            milking_days = 300
+            selling_price_per_l = 55.0
+            annual_opex_per_cow = 75000.0
+            capex_per_cow = 75000.0
+
+            daily_total_litres = units * yield_per_day_per_cow
+            annual_total_litres = units * (yield_per_day_per_cow * milking_days)
+            annual_gross_revenue = annual_total_litres * selling_price_per_l
+            monthly_gross_revenue = annual_gross_revenue / 12.0
+
+            annual_total_opex = units * annual_opex_per_cow
+            monthly_total_opex = annual_total_opex / 12.0
+
+            annual_net_profit = annual_gross_revenue - annual_total_opex
+            monthly_net_profit = annual_net_profit / 12.0
+
+            total_project_outlay = units * capex_per_cow
+            required_margin_10 = total_project_outlay * 0.10
+            eligible_loan_90 = total_project_outlay * 0.90
+
+            return {
+                "category": "Dairy Farming",
+                "unitNameEn": f"{int(units)} milch cows",
+                "unitNameTe": f"{int(units)} పాడి ఆవులు",
+                "units": units,
+                "metrics": {
+                    "dailyProductionLitres": daily_total_litres,
+                    "annualProductionLitres": annual_total_litres,
+                    "sellingPricePerLitre": selling_price_per_l,
+                    "annualGrossRevenue": annual_gross_revenue,
+                    "monthlyGrossRevenue": monthly_gross_revenue,
+                    "annualOperatingCosts": annual_total_opex,
+                    "monthlyOperatingCosts": monthly_total_opex,
+                    "annualNetProfit": annual_net_profit,
+                    "monthlyNetProfit": monthly_net_profit,
+                    "costBreakdown": {
+                        "feedAndFodder": annual_total_opex * 0.55,
+                        "veterinaryAndAI": annual_total_opex * 0.10,
+                        "laborAndMaintenance": annual_total_opex * 0.20,
+                        "utilitiesAndTransport": annual_total_opex * 0.15,
+                    }
+                },
+                "financialOutlay": {
+                    "totalProjectCost": total_project_outlay,
+                    "promoterMarginRequired": required_margin_10,
+                    "bankLoanEligible": eligible_loan_90,
+                },
+                "assumptions": [
+                    f"{int(units)} crossbred cows yield {daily_total_litres:,.0f} Litres/day ({annual_total_litres:,.0f} L/year over 300 milking days).",
+                    f"Milk sold at prevailing mandi/retail rate of ₹{selling_price_per_l:.0f}/Litre.",
+                    f"Annual operating expenses of ₹{annual_total_opex:,.0f} (₹{monthly_total_opex:,.0f}/month).",
+                    f"Net profit: ₹{annual_net_profit:,.0f}/year (₹{monthly_net_profit:,.0f}/month).",
+                ],
+                "assumptionsTe": [
+                    f"{int(units)} పాడి ఆవులు రోజుకు {daily_total_litres:,.0f} లీటర్ల పాలు (సంవత్సరానికి {annual_total_litres:,.0f} లీటర్లు) ఇస్తాయి.",
+                    f"సగటు విక్రయ ధర లీటరుకు ₹{selling_price_per_l:.0f}.",
+                    f"వార్షిక నిర్వహణ ఖర్చు ₹{annual_total_opex:,.0f} (నెలకు ₹{monthly_total_opex:,.0f}).",
+                    f"నికర లాభం: సంవత్సరానికి ₹{annual_net_profit:,.0f} (నెలకు ₹{monthly_net_profit:,.0f}).",
+                ]
+            }
+
+        elif "weaving" in cat_lower or "handloom" in cat_lower or "చేనేత" in cat_lower:
+            annual_sarees = units * 36
+            monthly_sarees = units * 3
+            net_profit_per_saree = 2500.0
+            annual_net_profit = annual_sarees * net_profit_per_saree
+            monthly_net_profit = annual_net_profit / 12.0
+            total_project_outlay = units * 50000.0
+
+            return {
+                "category": "Handloom & Weaving",
+                "unitNameEn": f"{int(units)} handlooms",
+                "unitNameTe": f"{int(units)} చేనేత మగ్గాలు",
+                "units": units,
+                "metrics": {
+                    "annualSareesProduced": annual_sarees,
+                    "monthlySareesProduced": monthly_sarees,
+                    "netProfitPerSaree": net_profit_per_saree,
+                    "annualNetProfit": annual_net_profit,
+                    "monthlyNetProfit": monthly_net_profit,
+                },
+                "financialOutlay": {
+                    "totalProjectCost": total_project_outlay,
+                    "promoterMarginRequired": total_project_outlay * 0.10,
+                    "bankLoanEligible": total_project_outlay * 0.90,
+                },
+                "assumptions": [
+                    f"Production of {monthly_sarees:,.0f} sarees/month ({annual_sarees:,.0f} sarees/year).",
+                    f"Net profit of ₹{net_profit_per_saree:,.0f} per saree after yarn and dyeing costs.",
+                    f"Net profit: ₹{annual_net_profit:,.0f}/year (₹{monthly_net_profit:,.0f}/month).",
+                ],
+                "assumptionsTe": [
+                    f"నెలకు {monthly_sarees:,.0f} చీరల ఉత్పత్తి (సంవత్సరానికి {annual_sarees:,.0f} చీరలు).",
+                    f"చీరకు ₹{net_profit_per_saree:,.0f} నికర లాభం.",
+                    f"నికర లాభం: సంవత్సరానికి ₹{annual_net_profit:,.0f} (నెలకు ₹{monthly_net_profit:,.0f}).",
+                ]
+            }
+
+        else:
+            turnover_per_unit = 360000.0 * units
+            annual_net_profit = turnover_per_unit * 0.15
+            monthly_net_profit = annual_net_profit / 12.0
+            total_project_outlay = turnover_per_unit * 0.25
+
+            return {
+                "category": category or "Rural Enterprise",
+                "unitNameEn": f"{int(units)} operational units",
+                "unitNameTe": f"{int(units)} వ్యాపార యూనిట్లు",
+                "units": units,
+                "metrics": {
+                    "annualGrossTurnover": turnover_per_unit,
+                    "monthlyGrossTurnover": turnover_per_unit / 12.0,
+                    "netMarginPercent": 15.0,
+                    "annualNetProfit": annual_net_profit,
+                    "monthlyNetProfit": monthly_net_profit,
+                },
+                "financialOutlay": {
+                    "totalProjectCost": total_project_outlay,
+                    "promoterMarginRequired": total_project_outlay * 0.10,
+                    "bankLoanEligible": total_project_outlay * 0.90,
+                },
+                "assumptions": [
+                    f"Gross sales turnover of ₹{turnover_per_unit:,.0f}/year (₹{turnover_per_unit / 12:,.0f}/month).",
+                    f"15% operating net margin across {int(units)} units.",
+                    f"Net profit: ₹{annual_net_profit:,.0f}/year (₹{monthly_net_profit:,.0f}/month).",
+                ],
+                "assumptionsTe": [
+                    f"వార్షిక అమ్మకాలు ₹{turnover_per_unit:,.0f} (నెలకు ₹{turnover_per_unit / 12:,.0f}).",
+                    f"15% నికర లాభ మార్జిన్.",
+                    f"నికర లాభం: సంవత్సరానికి ₹{annual_net_profit:,.0f} (నెలకు ₹{monthly_net_profit:,.0f}).",
+                ]
+            }
 
     @staticmethod
     def calculate_capacity_for_target_profit(
@@ -619,6 +677,7 @@ business_calculator = BusinessCalculationEngine()
 # Module-level convenience aliases
 classify_intent = BusinessCalculationEngine.classify_intent
 calculate_capacity_for_target_profit = BusinessCalculationEngine.calculate_capacity_for_target_profit
+calculate_forward_unit_profit = BusinessCalculationEngine.calculate_forward_unit_profit
 calculate_volume_for_target_revenue = BusinessCalculationEngine.calculate_volume_for_target_revenue
 calculate_break_even = BusinessCalculationEngine.calculate_break_even
 

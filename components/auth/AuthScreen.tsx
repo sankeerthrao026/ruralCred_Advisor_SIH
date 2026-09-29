@@ -38,37 +38,23 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated?: () => void }
 
     const rawEmail = email.trim();
     const rawPassword = password.trim();
-    if (!demoModeEnabled) {
-      if (!rawEmail) {
-        setError(isTe ? 'ఈమెయిల్ నమోదు చేయండి.' : 'Please enter your email.');
-        return;
-      }
-      if (!rawPassword) {
-        setError(isTe ? 'పాస్‌వర్డ్ నమోదు చేయండి.' : 'Please enter your password.');
-        return;
-      }
-    }
 
-    const cleanEmail = rawEmail || 'anita.dairy@ruralcred.in';
-    const cleanPassword = rawPassword || 'demo123';
+    if (!rawEmail) {
+      setError(isTe ? 'ఈమెయిల్ నమోదు చేయండి.' : 'Please enter your email.');
+      return;
+    }
+    if (!rawPassword) {
+      setError(isTe ? 'పాస్‌వర్డ్ నమోదు చేయండి.' : 'Please enter your password.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const res = await signIn(cleanEmail, cleanPassword);
+      const res = await signIn(rawEmail, rawPassword);
       if (res.error) {
         setError(res.error);
         setLoading(false);
         return;
-      }
-
-      // Determine preset persona based on email
-      const lower = cleanEmail.toLowerCase();
-      if (lower.includes('kirana') || lower.includes('ramesh')) {
-        loadPreset('kirana');
-      } else if (lower.includes('weaving') || lower.includes('lakshmi') || lower.includes('handloom')) {
-        loadPreset('weaving');
-      } else {
-        loadPreset('dairy');
       }
 
       setLoading(false);
@@ -85,35 +71,29 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated?: () => void }
 
     const rawEmail = email.trim();
     const rawPassword = password.trim();
-    if (!demoModeEnabled) {
-      if (!rawEmail) {
-        setError(isTe ? 'ఈమెయిల్ నమోదు చేయండి.' : 'Please enter your email.');
-        return;
-      }
-      if (!rawPassword) {
-        setError(isTe ? 'పాస్‌వర్డ్ నమోదు చేయండి.' : 'Please enter your password.');
-        return;
-      }
+
+    if (!rawEmail) {
+      setError(isTe ? 'ఈమెయిల్ నమోదు చేయండి.' : 'Please enter your email.');
+      return;
     }
-
-    const cleanEmail = rawEmail || 'anita.dairy@ruralcred.in';
-    const cleanPassword = rawPassword || 'demo123';
-
-    if (confirmPassword.trim() !== cleanPassword) {
+    if (!rawPassword) {
+      setError(isTe ? 'పాస్‌వర్డ్ నమోదు చేయండి.' : 'Please enter your password.');
+      return;
+    }
+    if (confirmPassword.trim() !== rawPassword) {
       setError(isTe ? 'పాస్‌వర్డ్‌లు సరిపోలలేదు. దయచేసి మళ్లీ ప్రయత్నించండి.' : 'Passwords do not match. Please try again.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await signUp(cleanEmail, cleanPassword, name || 'Rural Entrepreneur');
+      const res = await signUp(rawEmail, rawPassword, name.trim() || undefined);
       if (res.error) {
         setError(res.error);
         setLoading(false);
         return;
       }
 
-      loadPreset('dairy');
       setLoading(false);
       onAuthenticated?.();
     } catch (err: any) {
@@ -121,6 +101,7 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated?: () => void }
       setLoading(false);
     }
   };
+
 
   const handleContinueAsDemo = (e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -222,57 +203,37 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated?: () => void }
                     className="w-full rounded-lg border bg-background pl-9 pr-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-                {/* 1-Click Quick Fill Chips for Evaluator Personas */}
+                {/* Explicit 1-Click Demo Evaluator Persona Logins */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <span className="text-[11px] text-muted-foreground font-medium mr-0.5">
-                    {isTe ? 'డెమో ఖాతాలు:' : 'Quick fill:'}
+                    {isTe ? 'డెమో లాగిన్:' : 'Quick Demo:'}
                   </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      setEmail('anita.dairy@ruralcred.in');
-                      setPassword('demo123');
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                      email.includes('anita')
-                        ? 'bg-primary/15 border-primary text-primary font-semibold'
-                        : 'bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
+                    onClick={(e) => handlePersonaDemo('dairy', e)}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border bg-muted/70 hover:bg-primary/15 hover:border-primary text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                   >
                     <UserCheck className="size-3 text-primary" />
                     <span>Anita (Dairy)</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setEmail('ramesh.kirana@ruralcred.in');
-                      setPassword('demo123');
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                      email.includes('ramesh') || email.includes('kirana')
-                        ? 'bg-primary/15 border-primary text-primary font-semibold'
-                        : 'bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
+                    onClick={(e) => handlePersonaDemo('kirana', e)}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border bg-muted/70 hover:bg-primary/15 hover:border-primary text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                   >
                     <Store className="size-3 text-primary" />
                     <span>Ramesh (Kirana)</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setEmail('lakshmi.handloom@ruralcred.in');
-                      setPassword('demo123');
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                      email.includes('lakshmi') || email.includes('weaving') || email.includes('handloom')
-                        ? 'bg-primary/15 border-primary text-primary font-semibold'
-                        : 'bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
+                    onClick={(e) => handlePersonaDemo('weaving', e)}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border bg-muted/70 hover:bg-primary/15 hover:border-primary text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                   >
                     <ShoppingBag className="size-3 text-primary" />
                     <span>Lakshmi (Weaver)</span>
                   </button>
                 </div>
+
               </div>
 
               <div>

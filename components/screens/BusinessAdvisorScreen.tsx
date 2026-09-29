@@ -2,8 +2,16 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { BusinessAdvisorOutput } from '@/lib/ai/provider';
+import {
+  saveConversationMetadata,
+  saveMessage,
+  fetchMessages,
+  StoredMessage,
+} from '@/lib/firebase/conversations';
+import { ConversationHistoryModal } from '@/components/ai/ConversationHistoryModal';
 import {
   isSpeechRecognitionSupported,
   isMediaRecordingSupported,
@@ -41,12 +49,13 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  Clock,
+  Plus,
 } from 'lucide-react';
 import { FeasibilityScoreCard } from '@/components/feasibility/FeasibilityScoreCard';
 import { MissingInformationCard } from '@/components/checklist/MissingInformationCard';
 import { ScenarioSimulatorCard } from '@/components/simulator/ScenarioSimulatorCard';
 import { MultiYearProjectionTable } from '@/components/projections/MultiYearProjectionTable';
-import { LlmProviderStatusCard } from '@/components/ai/LlmProviderStatusCard';
 import { exportBusinessAnalysisToPdf, BusinessAnalysisReportData } from '@/lib/export/business-analysis-pdf';
 import { evaluateBusinessFeasibility } from '@/lib/finance/feasibility';
 import { runScenarioComparisonSuite } from '@/lib/finance/scenarios';
@@ -144,6 +153,8 @@ function formatTime(timestamp: number): string {
 
 export function BusinessAdvisorScreen() {
   const { profile, finance, language, dictionary, totalIncome, totalExpenses } = useApp();
+  const { user, isDemo } = useAuth();
+  const userId = user?.id || 'demo-user';
   const t = dictionary.businessAdvisor;
   const isTe = language === 'te';
 
@@ -163,6 +174,8 @@ export function BusinessAdvisorScreen() {
 
   // Interactive Conversation State
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [inputText, setInputText] = useState('');
   const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -173,6 +186,35 @@ export function BusinessAdvisorScreen() {
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceControllerRef = useRef<SpeechController | null>(null);
+
+  const handleNewConversation = () => {
+    const newId = `conv-biz-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    setActiveConversationId(newId);
+    setMessages([]);
+    setData(null);
+  };
+
+  const handleSelectConversation = async (convId: string) => {
+    setActiveConversationId(convId);
+    try {
+      const stored = await fetchMessages(userId, convId);
+      const mapped: AdvisorMessage[] = stored.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: formatTime(m.timestamp),
+        data: m.data,
+        isError: m.isError,
+      }));
+      setMessages(mapped);
+      const lastWithData = [...mapped].reverse().find((m) => m.data);
+      if (lastWithData && lastWithData.data) {
+        setData(lastWithData.data);
+      }
+    } catch (e) {
+      console.warn('Failed to load conversation messages:', e);
+    }
+  };
 
   // Abort any active voice session when the screen unmounts so the microphone
   // is never left running in the background.
@@ -300,8 +342,8 @@ export function BusinessAdvisorScreen() {
       });
 
       const exportData: BusinessAnalysisReportData = {
-        businessName: profile.businessName || 'Sharma Dairy Farm',
-        promoterName: profile.name || 'Anita Sharma',
+        businessName: profile.businessName || (isDemo ? 'Sharma Dairy Farm' : `${profile.name || user?.name || 'My'} Enterprises`),
+        promoterName: profile.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur'),
         category: selectedCategory,
         location: selectedLocation,
         projectCost: projectCostVal,
@@ -395,6 +437,13 @@ export function BusinessAdvisorScreen() {
 
     setInputText('');
 
+    let convId = activeConversationId;
+    const isNewConv = !convId;
+    if (!convId) {
+      convId = `conv-biz-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      setActiveConversationId(convId);
+    }
+
     const userMessage: AdvisorMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -405,6 +454,31 @@ export function BusinessAdvisorScreen() {
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setIsFollowUpLoading(true);
+
+    // Persist user message
+    if (userId) {
+      await saveMessage(
+        userId,
+        convId,
+        {
+          id: userMessage.id,
+          role: 'user',
+          content: cleanText,
+          timestamp: Date.now(),
+          language,
+        },
+        {
+          id: convId,
+          advisorType: 'business',
+          title: isNewConv || messages.length <= 1 ? cleanText.substring(0, 45) : undefined,
+          createdAt: isNewConv ? Date.now() : undefined,
+          updatedAt: Date.now(),
+          language,
+          messageCount: updatedMessages.length,
+          lastSnippet: cleanText.substring(0, 80),
+        }
+      );
+    }
 
     try {
       // Build conversation history array
@@ -442,6 +516,29 @@ export function BusinessAdvisorScreen() {
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Persist assistant message
+      if (userId && convId) {
+        await saveMessage(
+          userId,
+          convId,
+          {
+            id: aiMessage.id,
+            role: 'assistant',
+            content: aiMessage.content,
+            timestamp: Date.now(),
+            language,
+            data: result,
+          },
+          {
+            id: convId,
+            advisorType: 'business',
+            updatedAt: Date.now(),
+            messageCount: updatedMessages.length + 1,
+            lastSnippet: (result.reply || aiMessage.content).substring(0, 80),
+          }
+        );
+      }
     } catch (err: any) {
       console.error('Follow-up error:', err);
       const errorMessage: AdvisorMessage = {
@@ -615,6 +712,26 @@ export function BusinessAdvisorScreen() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowHistoryModal(true)}
+            className="flex items-center gap-1.5 shrink-0 bg-card font-semibold text-xs border-border hover:bg-muted transition-all cursor-pointer shadow-xs"
+          >
+            <Clock className="size-3.5 text-primary" />
+            <span>{isTe ? 'సంభాషణల చరిత్ర' : 'Chat History'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNewConversation}
+            className="flex items-center gap-1.5 shrink-0 bg-card font-semibold text-xs border-border hover:bg-muted transition-all cursor-pointer shadow-xs"
+          >
+            <Plus className="size-3.5" />
+            <span>{isTe ? 'కొత్త సంభాషణ' : 'New Chat'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportPdf}
             disabled={exportingPdf || loading}
             className="flex items-center gap-1.5 shrink-0 bg-card font-semibold text-xs border-emerald-500/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all cursor-pointer shadow-xs"
@@ -647,9 +764,6 @@ export function BusinessAdvisorScreen() {
           </Button>
         </div>
       </div>
-
-      {/* LLM Provider Status, Quota Transparency & Fallback Telemetry Card */}
-      <LlmProviderStatusCard language={isTe ? 'te' : 'en'} refreshTrigger={telemetryTrigger} />
 
       {/* Hyper-Local District, Category & Seasonality Explorer */}
       <div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-xs flex flex-col gap-4">
@@ -1477,6 +1591,17 @@ export function BusinessAdvisorScreen() {
         {/* 4. 5-Year Multi-Year Financial Projections */}
         <MultiYearProjectionTable />
       </div>
+
+      {/* Conversation History Modal */}
+      <ConversationHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        advisorType="business"
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        language={language}
+      />
     </div>
   );
 }

@@ -1,23 +1,33 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Check, Sparkles, Building2, MapPin, IndianRupee, ShieldCheck } from 'lucide-react';
+import { Mic, Check, Sparkles, Building2, MapPin, IndianRupee, ShieldCheck, User, Briefcase } from 'lucide-react';
 import { formatINR } from '@/lib/utils/currency';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { VoiceButton } from '@/components/ui/voice-button';
 import { parseSpokenTransaction } from '@/lib/voice/speech';
 
 export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
+  const { user, isDemo } = useAuth();
   const { profile, updateProfile, language, setLanguage, inputMode, setInputMode, loadPreset, dictionary } = useApp();
   const t = dictionary.onboarding;
   const isTe = language === 'te';
 
-  const [location, setLocation] = useState(profile.location);
-  const [category, setCategory] = useState(profile.category);
-  const [marginCapital, setMarginCapital] = useState(profile.marginCapital.toString());
-  const [hasActiveLoan, setHasActiveLoan] = useState(profile.hasActiveLoan);
+  const defaultName = profile?.name || user?.name || user?.email?.split('@')[0] || '';
+  const defaultBiz = profile?.businessName || (defaultName ? `${defaultName} Enterprises` : '');
+
+  const [name, setName] = useState(defaultName);
+  const [businessName, setBusinessName] = useState(defaultBiz);
+  const [location, setLocation] = useState(profile?.location || '');
+  const [category, setCategory] = useState(profile?.category || 'Dairy Farming');
+  const [marginCapital, setMarginCapital] = useState(profile?.marginCapital ? profile.marginCapital.toString() : '100000');
+  const [hasActiveLoan, setHasActiveLoan] = useState(profile?.hasActiveLoan || false);
+  const [gender, setGender] = useState(profile?.gender || 'female');
+  const [socialCategory, setSocialCategory] = useState(profile?.socialCategory || 'OBC');
+  const [hasUdyamRegistration, setHasUdyamRegistration] = useState(profile?.hasUdyamRegistration || false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const categories = [
@@ -32,8 +42,6 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
   const voiceInput = useVoiceInput({
     targetLanguage: language,
     onResult: (transcript, isFinal) => {
-      // Only final transcripts should update the form — interim results would
-      // otherwise flicker partial text into the fields.
       if (!isFinal) return;
 
       const parsedTx = parseSpokenTransaction(transcript);
@@ -88,14 +96,20 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanMargin = parseFloat(marginCapital.replace(/[^\d]/g, '')) || 100000;
-    updateProfile({
-      location,
+    await updateProfile({
+      name: name.trim() || profile.name,
+      businessName: businessName.trim() || profile.businessName,
+      location: location.trim(),
       category,
       marginCapital: cleanMargin,
       hasActiveLoan,
+      gender,
+      socialCategory,
+      hasUdyamRegistration,
+      onboardingCompleted: true,
     });
     setSaveSuccess(true);
     setTimeout(() => {
@@ -116,11 +130,21 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
           <button
             type="button"
             onClick={() => {
-              loadPreset('dairy');
+              const realUserDefaultName = user?.name || user?.email?.split('@')[0] || 'Entrepreneur';
+              if (isDemo) {
+                setName('Anita Sharma');
+                setBusinessName('Sharma Dairy Farm');
+              } else {
+                const activeName = name.trim() || realUserDefaultName;
+                setName(activeName);
+                setBusinessName(`${activeName} Dairy Farm`);
+              }
               setLocation('Warangal, Telangana');
               setCategory('Dairy Farming');
-              setMarginCapital('100000');
+              setMarginCapital('150000');
               setHasActiveLoan(false);
+              setGender('female');
+              setSocialCategory('OBC');
             }}
             className="rounded-lg border bg-card px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-primary hover:text-primary-foreground shadow-xs cursor-pointer active:scale-95"
           >
@@ -129,11 +153,21 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
           <button
             type="button"
             onClick={() => {
-              loadPreset('kirana');
-              setLocation('Karimnagar, Telangana');
+              const realUserDefaultName = user?.name || user?.email?.split('@')[0] || 'Entrepreneur';
+              if (isDemo) {
+                setName('Ramesh Kumar');
+                setBusinessName('Ramesh General & Kirana Store');
+              } else {
+                const activeName = name.trim() || realUserDefaultName;
+                setName(activeName);
+                setBusinessName(`${activeName} General & Kirana Store`);
+              }
+              setLocation('Khammam, Telangana');
               setCategory('Rural Grocery / Kirana');
-              setMarginCapital('12000');
+              setMarginCapital('50000');
               setHasActiveLoan(false);
+              setGender('male');
+              setSocialCategory('OBC');
             }}
             className="rounded-lg border bg-card px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-primary hover:text-primary-foreground shadow-xs cursor-pointer active:scale-95"
           >
@@ -142,11 +176,21 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
           <button
             type="button"
             onClick={() => {
-              loadPreset('weaving');
+              const realUserDefaultName = user?.name || user?.email?.split('@')[0] || 'Entrepreneur';
+              if (isDemo) {
+                setName('Lakshmi Devi');
+                setBusinessName('Lakshmi Handlooms & Textiles');
+              } else {
+                const activeName = name.trim() || realUserDefaultName;
+                setName(activeName);
+                setBusinessName(`${activeName} Handlooms & Textiles`);
+              }
               setLocation('Nalgonda, Telangana');
               setCategory('Handloom / Weaving');
               setMarginCapital('30000');
               setHasActiveLoan(false);
+              setGender('female');
+              setSocialCategory('General');
             }}
             className="rounded-lg border bg-card px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-primary hover:text-primary-foreground shadow-xs cursor-pointer active:scale-95"
           >
@@ -245,6 +289,39 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
           </div>
         )}
 
+        {/* Identity: Promoter Name & Business Name */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <User className="size-4 text-primary" />
+              {isTe ? 'పూర్తి పేరు' : 'Promoter / Entrepreneur Name'}
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={isTe ? 'ఉదా: అనిత శర్మ' : 'e.g. Rahul Kumar'}
+              className="mt-2 w-full rounded-lg border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <Briefcase className="size-4 text-primary" />
+              {isTe ? 'వ్యాపార / సంస్థ పేరు' : 'Enterprise / Business Name'}
+            </label>
+            <input
+              type="text"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder={isTe ? 'ఉదా: శర్మ డెయిరీ ఫామ్' : 'e.g. Rahul Dairy Farm'}
+              className="mt-2 w-full rounded-lg border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              required
+            />
+          </div>
+        </div>
+
         {/* Enterprise Category */}
         <div>
           <label className="flex items-center gap-2 text-sm font-medium">
@@ -303,6 +380,54 @@ export function BusinessProfileScreen({ onSaved }: { onSaved?: () => void }) {
             required
           />
           <p className="mt-1.5 text-xs text-muted-foreground">{t.marginHelp}</p>
+        </div>
+
+        {/* Demographics & Registration Status */}
+        <div className="grid gap-4 sm:grid-cols-3 pt-2">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
+              {isTe ? 'లింగం' : 'Gender'}
+            </label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className="w-full rounded-lg border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+            >
+              <option value="female">{isTe ? 'మహిళ' : 'Female'}</option>
+              <option value="male">{isTe ? 'పురుషుడు' : 'Male'}</option>
+              <option value="other">{isTe ? 'ఇతర' : 'Other'}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
+              {isTe ? 'సామాజిక వర్గం' : 'Social Category'}
+            </label>
+            <select
+              value={socialCategory}
+              onChange={(e) => setSocialCategory(e.target.value)}
+              className="w-full rounded-lg border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+            >
+              <option value="OBC">OBC</option>
+              <option value="SC">SC</option>
+              <option value="ST">ST</option>
+              <option value="General">{isTe ? 'జనరల్' : 'General'}</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
+              {isTe ? 'ఉద్యమ్ రిజిస్ట్రేషన్' : 'Udyam Registration'}
+            </label>
+            <select
+              value={hasUdyamRegistration ? 'yes' : 'no'}
+              onChange={(e) => setHasUdyamRegistration(e.target.value === 'yes')}
+              className="w-full rounded-lg border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+            >
+              <option value="no">{isTe ? 'లేదు' : 'No'}</option>
+              <option value="yes">{isTe ? 'ఉంది (Registered)' : 'Yes (Registered)'}</option>
+            </select>
+          </div>
         </div>
 
         {/* Active Loan Checkbox (Simulates Rule 1) */}

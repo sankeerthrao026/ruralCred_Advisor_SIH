@@ -13,8 +13,31 @@ export type BusinessDomain =
   | 'agriculture_crop'
   | 'general_enterprise';
 
+export type NumericRole =
+  | 'TARGET_PROFIT'
+  | 'SEARCH_TARGET_VALUE'
+  | 'PREVIOUS_ANSWER_VALUE'
+  | 'INPUT_PARAMETER'
+  | 'COMPARISON_VALUE'
+  | 'LOAN_AMOUNT'
+  | 'UNKNOWN';
+
+export interface ExtractedNumber {
+  raw: string;
+  value: number;
+  role: NumericRole;
+  unit?: string;
+  timeframe?: string;
+}
+
 export interface ParsedQueryIntent {
   intent:
+    | 'retrieval_evidence_inspection'
+    | 'provenance_query'
+    | 'forward_unit_calculation'
+    | 'comparison_query'
+    | 'translation_query'
+    | 'loan_simulation'
     | 'location_selection'
     | 'investment_decision'
     | 'capacity_calculation'
@@ -33,6 +56,9 @@ export interface ParsedQueryIntent {
   entity: 'cow' | 'buffalo' | 'bird' | 'loom' | 'milk_litre' | null;
   timeframe: 'annual' | 'monthly' | 'daily';
   domain: BusinessDomain;
+  numericRoles?: ExtractedNumber[];
+  primaryRole?: NumericRole;
+  inputUnits?: number | null;
 }
 
 export interface CapacityCalculationResult {
@@ -51,6 +77,20 @@ export interface CapacityCalculationResult {
   };
   assumptions?: string[];
   assumptionsTe?: string[];
+}
+
+export interface ForwardUnitProfitResult {
+  category: string;
+  units: number;
+  unitNameEn: string;
+  unitNameTe: string;
+  annualRevenue: number;
+  annualOpex: number;
+  annualNetProfit: number;
+  monthlyNetProfit: number;
+  totalCapex: number;
+  marginRequired: number;
+  loanEligible: number;
 }
 
 export function parseTargetAmount(text: string): number | null {
@@ -86,6 +126,124 @@ export function parseTargetAmount(text: string): number | null {
   }
 
   return null;
+}
+
+export function extractNumbersWithRoles(query: string): ExtractedNumber[] {
+  if (!query) return [];
+  const qLower = query.toLowerCase();
+  const extracted: ExtractedNumber[] = [];
+
+  // Patterns for currency & values
+  const currencyMatches = [
+    ...qLower.matchAll(/(?:₹|rs\.?|inr)?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(lakhs?|lacs?|lac|l|crores?|crs?|cr|k|thousand|వేలు|లక్షలు|కోట్లు)?(?:\s*\/\s*(month|mo|year|yr|annum|day|నెల|సంవత్సరం|రోజు))?/gi)
+  ];
+
+  for (const m of currencyMatches) {
+    const rawNum = m[1].replace(/,/g, '');
+    let val = parseFloat(rawNum);
+    if (isNaN(val)) continue;
+
+    const multiplier = (m[2] || '').toLowerCase();
+    if (multiplier.startsWith('l') || multiplier.includes('లక్ష')) val *= 100000;
+    else if (multiplier.startsWith('c') || multiplier.includes('కోట్')) val *= 10000000;
+    else if (multiplier === 'k' || multiplier.includes('thousand') || multiplier.includes('వేలు')) val *= 1000;
+
+    const tf = m[3] ? m[3].toLowerCase() : undefined;
+    const rawMatched = m[0].trim();
+    if (val <= 0 && rawMatched.length === 0) continue;
+
+    let role: NumericRole = 'UNKNOWN';
+
+    // Evidence / inspection context
+    if (
+      qLower.includes('chromadb') ||
+      qLower.includes('retrieval evidence') ||
+      qLower.includes('chunk') ||
+      qLower.includes('similarity') ||
+      qLower.includes('score') ||
+      qLower.includes('distance') ||
+      qLower.includes('exact text') ||
+      qLower.includes('ఆధారాలు')
+    ) {
+      role = 'SEARCH_TARGET_VALUE';
+    }
+    // Provenance / derivation context
+    else if (
+      qLower.includes('where did') ||
+      qLower.includes('how did you calculate') ||
+      qLower.includes('how was') ||
+      qLower.includes('provenance') ||
+      qLower.includes('formula') ||
+      qLower.includes('breakdown of') ||
+      qLower.includes('source of') ||
+      qLower.includes('ఎలా లెక్కించారు') ||
+      qLower.includes('ఎక్కడి నుండి')
+    ) {
+      role = 'PREVIOUS_ANSWER_VALUE';
+    }
+    // Comparison context
+    else if (
+      qLower.includes('compare') ||
+      qLower.includes('versus') ||
+      qLower.includes(' vs ') ||
+      qLower.includes('difference between') ||
+      qLower.includes('పోల్చండి') ||
+      qLower.includes('తేడా')
+    ) {
+      role = 'COMPARISON_VALUE';
+    }
+    // Loan / repayment context
+    else if (
+      qLower.includes('loan') ||
+      qLower.includes('borrow') ||
+      qLower.includes('emi') ||
+      qLower.includes('repay') ||
+      qLower.includes('రుణం') ||
+      qLower.includes('అప్పు')
+    ) {
+      role = 'LOAN_AMOUNT';
+    }
+    // Target profit / capacity context
+    else if (
+      qLower.includes('target') ||
+      qLower.includes('make a profit') ||
+      qLower.includes('earn') ||
+      qLower.includes('how many') ||
+      qLower.includes('profit of') ||
+      qLower.includes('లాభం') ||
+      qLower.includes('సంపాదించడానికి')
+    ) {
+      role = 'TARGET_PROFIT';
+    }
+
+    if (val >= 100 || role !== 'UNKNOWN') {
+      extracted.push({
+        raw: rawMatched,
+        value: val,
+        role,
+        timeframe: tf,
+      });
+    }
+  }
+
+  // Unit count input parameters (e.g., "10 cows", "5 buffaloes", "4 looms", "1000 birds")
+  const unitMatches = [
+    ...qLower.matchAll(/\b(\d+)\s*(cows?|buffaloes?|birds?|looms?|hens?|ఆవులు|బర్రెలు|మగ్గాలు|కోళ్లు)\b/gi)
+  ];
+
+  for (const um of unitMatches) {
+    const val = parseInt(um[1], 10);
+    if (!isNaN(val)) {
+      extracted.push({
+        raw: um[0],
+        value: val,
+        role: 'INPUT_PARAMETER',
+        unit: um[2],
+      });
+    }
+  }
+
+  return extracted;
 }
 
 export function detectBusinessDomain(
@@ -204,6 +362,96 @@ export function detectBusinessDomain(
   return 'general_enterprise';
 }
 
+export function calculateForwardUnitProfit(
+  category: string,
+  units: number
+): ForwardUnitProfitResult {
+  const catLower = (category || '').toLowerCase();
+  const count = Math.max(1, units || 1);
+
+  if (catLower.includes('dairy') || catLower.includes('పాడి') || catLower.includes('cow') || catLower.includes('milk')) {
+    const annualRev = count * 165000;
+    const annualOpex = count * 75000;
+    const annualNet = count * 90000;
+    const monthlyNet = annualNet / 12;
+    const totalCapex = count * 75000;
+
+    return {
+      category: 'Dairy Farming',
+      units: count,
+      unitNameEn: count === 1 ? 'milch cow' : 'milch cows',
+      unitNameTe: count === 1 ? 'పాడి ఆవు' : 'పాడి ఆవులు',
+      annualRevenue: annualRev,
+      annualOpex,
+      annualNetProfit: annualNet,
+      monthlyNetProfit: monthlyNet,
+      totalCapex,
+      marginRequired: totalCapex * 0.1,
+      loanEligible: totalCapex * 0.9,
+    };
+  } else if (catLower.includes('poultry') || catLower.includes('కోడి') || catLower.includes('chicken')) {
+    const annualRev = count * 600;
+    const annualOpex = count * 420;
+    const annualNet = count * 180;
+    const monthlyNet = annualNet / 12;
+    const totalCapex = count * 250;
+
+    return {
+      category: 'Poultry Farming',
+      units: count,
+      unitNameEn: count === 1 ? 'broiler bird' : 'broiler birds',
+      unitNameTe: count === 1 ? 'పౌల్ట్రీ పక్షి' : 'పౌల్ట్రీ పక్షులు',
+      annualRevenue: annualRev,
+      annualOpex,
+      annualNetProfit: annualNet,
+      monthlyNetProfit: monthlyNet,
+      totalCapex,
+      marginRequired: totalCapex * 0.1,
+      loanEligible: totalCapex * 0.9,
+    };
+  } else if (catLower.includes('weaving') || catLower.includes('handloom') || catLower.includes('చేనేత')) {
+    const annualRev = count * 240000;
+    const annualOpex = count * 150000;
+    const annualNet = count * 90000;
+    const monthlyNet = annualNet / 12;
+    const totalCapex = count * 50000;
+
+    return {
+      category: 'Handloom & Weaving',
+      units: count,
+      unitNameEn: count === 1 ? 'handloom' : 'handlooms',
+      unitNameTe: count === 1 ? 'చేనేత మగ్గం' : 'చేనేత మగ్గాలు',
+      annualRevenue: annualRev,
+      annualOpex,
+      annualNetProfit: annualNet,
+      monthlyNetProfit: monthlyNet,
+      totalCapex,
+      marginRequired: totalCapex * 0.1,
+      loanEligible: totalCapex * 0.9,
+    };
+  } else {
+    const annualRev = count * 500000;
+    const annualOpex = count * 400000;
+    const annualNet = count * 100000;
+    const monthlyNet = annualNet / 12;
+    const totalCapex = count * 125000;
+
+    return {
+      category: category || 'Rural Enterprise',
+      units: count,
+      unitNameEn: 'enterprise units',
+      unitNameTe: 'వ్యాపార యూనిట్లు',
+      annualRevenue: annualRev,
+      annualOpex,
+      annualNetProfit: annualNet,
+      monthlyNetProfit: monthlyNet,
+      totalCapex,
+      marginRequired: totalCapex * 0.1,
+      loanEligible: totalCapex * 0.9,
+    };
+  }
+}
+
 export function classifyQueryIntent(
   query: string,
   history?: { role: string; content: string }[],
@@ -219,15 +467,56 @@ export function classifyQueryIntent(
       entity: null,
       timeframe: 'annual',
       domain,
+      numericRoles: [],
+      primaryRole: 'UNKNOWN',
+      inputUnits: null,
     };
   }
 
   const q = query.toLowerCase().trim();
+  const extractedNumbers = extractNumbersWithRoles(query);
   const targetAmt = parseTargetAmount(q);
 
   const isMonthly = ['month', 'monthly', 'నెల', 'నెలకు', 'మాసం', 'प्रति माह'].some((w) => q.includes(w));
   const isDaily = ['day', 'daily', 'రోజు', 'రోజుకు', 'రోజూ', 'प्रति दिन'].some((w) => q.includes(w));
   const timeframe = isDaily ? 'daily' : isMonthly ? 'monthly' : 'annual';
+
+  // 0. Retrieval Evidence / ChromaDB Provenance Inspection (HIGHEST PRIORITY)
+  const isRetrievalEvidence = [
+    'chromadb retrieval evidence', 'retrieval evidence', 'chromadb evidence', 'retrieval provenance',
+    'chromadb collection', 'collection name', 'chunks retrieved', 'number of chunks', 'retrieved document',
+    'retrieved chunk', 'document/chunk ids', 'similarity scores', 'similarity distances', 'similarity score',
+    'similarity distance', 'exact retrieved text', 'show me the chromadb', 'show me the retrieval',
+    'chroma retrieval', 'vector store evidence', 'vector database evidence', 'retrieval metadata', 'chromadb chunks',
+    'రిట్రీవల్ ఆధారాలు', 'క్రోమాడీబీ ఆధారాలు', 'రిట్రీవల్ వివరాలు', 'సారూప్యత స్కోర్లు', 'చంక్స్', 'డాక్యుమెంట్ ఐడీలు'
+  ].some((w) => q.includes(w));
+
+  // 0b. Provenance / Derivation Query (Where did figures come from?)
+  const isProvenance = [
+    'where did', 'how did you calculate', 'how was that calculated', 'provenance',
+    'derivation of', 'show formula', 'show derivation', 'source of ₹', 'source of rs',
+    'where did the', 'how do you get', 'how did you arrive',
+    'ఎలా లెక్కించారు', 'ఎక్కడి నుండి వచ్చింది', 'లెక్కల మూలం', 'సూత్రం చూపించు'
+  ].some((w) => q.includes(w));
+
+  // 0c. Translation Query
+  const isTranslation = [
+    'translate your previous', 'translate this to telugu', 'translate to telugu', 'translate in telugu',
+    'translate to english', 'translate your answer', 'తెలుగులోకి అనువదించు', 'ఇంగ్లీషులోకి అనువదించు'
+  ].some((w) => q.includes(w));
+
+  // 0d. Comparison Query
+  const isComparison = [
+    'compare', 'difference between', 'versus', ' vs ', 'which is better',
+    'పోల్చండి', 'తేడా ఏమిటి', 'పోలిక'
+  ].some((w) => q.includes(w));
+
+  // 0e. Forward Unit Calculation (e.g. "Calculate profit from 10 cows", "If I have 10 cows")
+  const inputParam = extractedNumbers.find((n) => n.role === 'INPUT_PARAMETER');
+  const isForwardUnit = Boolean(inputParam) || [
+    'if i have', 'with 10 cows', 'with 5 cows', 'from 10 cows', 'from 5 cows', 'profit from 10',
+    'profit from 5', 'calculate profit from', '10 ఆవులు ఉంటే', '5 ఆవులు ఉంటే', '10 ఆవుల నుండి'
+  ].some((w) => q.includes(w));
 
   // 1. Location Selection / Business Location Analysis (HIGH PRIORITY)
   const isLocationSelection = [
@@ -244,7 +533,7 @@ export function classifyQueryIntent(
     'అనువైన ప్రాంతాలు', 'అనువైన స్థలాలు', 'అనువైన స్థలం'
   ].some((w) => q.includes(w));
 
-  // 2. Feed / Raw Material / Input Sourcing (Check before generic buy/invest)
+  // 2. Feed / Raw Material / Input Sourcing
   const isFeed = [
     'feed', 'fodder', 'raw material', 'input cost', 'cost of feed', 'yarn', 'fabric', 'daana', 'దాణా',
     'పచ్చిగడ్డి', 'ముడిసరుకు', 'తక్కువ ఖర్చు', 'నూలు', 'చౌకగా', 'buy feed', 'cheaper'
@@ -307,8 +596,34 @@ export function classifyQueryIntent(
 
   let intent: ParsedQueryIntent['intent'] = 'general_advisory';
   let isNumerical = false;
+  let primaryRole: NumericRole = 'UNKNOWN';
+  let inputUnits: number | null = null;
 
-  if (isLocationSelection) {
+  if (inputParam) {
+    inputUnits = inputParam.value;
+  }
+
+  // Hierarchy Resolution
+  if (isRetrievalEvidence) {
+    intent = 'retrieval_evidence_inspection';
+    primaryRole = 'SEARCH_TARGET_VALUE';
+    isNumerical = false;
+  } else if (isProvenance) {
+    intent = 'provenance_query';
+    primaryRole = 'PREVIOUS_ANSWER_VALUE';
+    isNumerical = false;
+  } else if (isTranslation) {
+    intent = 'translation_query';
+    isNumerical = false;
+  } else if (isComparison) {
+    intent = 'comparison_query';
+    primaryRole = 'COMPARISON_VALUE';
+    isNumerical = false;
+  } else if (isForwardUnit && (inputUnits !== null || isProfitInquiry)) {
+    intent = 'forward_unit_calculation';
+    primaryRole = 'INPUT_PARAMETER';
+    isNumerical = true;
+  } else if (isLocationSelection) {
     intent = 'location_selection';
     isNumerical = false;
   } else if (isInvestmentDecision) {
@@ -316,6 +631,7 @@ export function classifyQueryIntent(
     isNumerical = false;
   } else if (isQuantityCalc && (targetAmt || isProfitInquiry)) {
     intent = 'capacity_calculation';
+    primaryRole = 'TARGET_PROFIT';
     isNumerical = true;
   } else if (isVolumeTarget && targetAmt) {
     intent = 'volume_target_calculation';
@@ -328,6 +644,7 @@ export function classifyQueryIntent(
     isNumerical = true;
   } else if (isProfitInquiry && targetAmt) {
     intent = 'capacity_calculation';
+    primaryRole = 'TARGET_PROFIT';
     isNumerical = true;
   } else if (isProfitInquiry) {
     intent = 'profitability_calculation';
@@ -348,7 +665,9 @@ export function classifyQueryIntent(
     intent = 'cash_flow_optimization';
     isNumerical = false;
   } else if (targetAmt) {
+    // Only treat raw targetAmt as capacity target if not an evidence/provenance query
     intent = 'capacity_calculation';
+    primaryRole = 'TARGET_PROFIT';
     isNumerical = true;
   }
 
@@ -366,6 +685,9 @@ export function classifyQueryIntent(
     entity,
     timeframe,
     domain,
+    numericRoles: extractedNumbers,
+    primaryRole,
+    inputUnits,
   };
 }
 

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { formatINR } from '@/lib/utils/currency';
 import { calculateFinancialHealthScore } from '@/lib/finance/engine';
 import { AnimatedNumber } from '@/components/ui/animated-number';
@@ -9,7 +10,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ChevronRight,
-  Sparkles,
   TrendingUp,
   FileText,
   AlertTriangle,
@@ -20,15 +20,11 @@ import {
   ExternalLink,
   MapPin,
   Briefcase,
-  Send,
-  Mic,
-  ArrowRight,
   BadgePercent,
   Wallet,
   Building2,
   Sliders,
   DollarSign,
-  Cpu,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -68,9 +64,9 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
     theme,
   } = useApp();
 
+  const { user, isDemo } = useAuth();
   const isTe = language === 'te';
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '3m'>('30d');
-  const [quickPrompt, setQuickPrompt] = useState('');
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -78,6 +74,8 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
     if (hour < 17) return isTe ? 'శుభ మధ్యాహ్నం' : 'Good afternoon';
     return isTe ? 'శుభ సాయంత్రం' : 'Good evening';
   };
+
+  const displayName = profile.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur');
 
   // Real chart data bucketed from logged entries
   const chartDatasets = useMemo(() => {
@@ -167,38 +165,6 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
 
   const activeChartData = chartDatasets[timeframe];
 
-  // Quick Action Chips for the AI Advisor
-  const suggestedAdvisorPrompts = [
-    {
-      labelEn: '📍 High-Profit Locations in Warangal',
-      labelTe: '📍 వరంగల్‌లో లాభదాయకమైన ప్రాంతాలు',
-      screen: 'Business Advisor',
-      query: 'Suggest me places where if I establish my shop I can get great profits',
-    },
-    {
-      labelEn: '🎯 How to reach ₹5 Lakh profit?',
-      labelTe: '🎯 ₹5 లక్షల లాభం ఎలా సాధించాలి?',
-      screen: 'Business Advisor',
-      query: 'I want to make a profit of 5 lakh rupees how my finances should look',
-    },
-    {
-      labelEn: '🏛️ Eligible Credit Schemes & Subsidies',
-      labelTe: '🏛️ అందుబాటులో ఉన్న ప్రభుత్వ రాయితీలు',
-      screen: 'Finance Advisor',
-      query: 'What government credit schemes and subsidies match my enterprise profile?',
-    },
-    {
-      labelEn: '💡 Climate control & shed investment',
-      labelTe: '💡 షెడ్ వెంటిలేషన్ / కూలింగ్ పెట్టుబడి',
-      screen: 'Business Advisor',
-      query: 'Is investing in climate control or shade nets profitable for my unit?',
-    },
-  ];
-
-  const handleQuickAsk = (targetScreen: string, queryText?: string) => {
-    setActive(targetScreen);
-  };
-
   return (
     <div className="flex flex-col gap-6">
       {/* ========================================================================= */}
@@ -222,7 +188,7 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold font-sora tracking-tight text-white">
-              {getGreeting()}, {profile.name || 'Anita Sharma'}
+              {getGreeting()}, {displayName}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               {isTe
@@ -719,129 +685,7 @@ export function OverviewScreen({ setActive }: { setActive: (value: string) => vo
       </div>
 
       {/* ========================================================================= */}
-      {/* 4. CORE EXPERIENCE: ASK RURALCRED AI ADVISOR                             */}
-      {/* ========================================================================= */}
-      <section className="stagger-6 rounded-3xl border border-primary/25 bg-gradient-to-br from-primary/5 via-card to-card p-6 sm:p-8 shadow-xs relative overflow-hidden transition-all">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-primary/10">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-xs">
-              <Sparkles className="size-5 text-amber-300" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold font-sora text-foreground flex items-center gap-2">
-                <span>{isTe ? 'రూరల్‌క్రెడ్ AI సలహాదారుని అడగండి' : 'Ask RuralCred AI Advisor'}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                  Multi-Domain Intelligence
-                </span>
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {isTe
-                  ? 'మీ వ్యాపార గణాంకాలు మరియు జిల్లా బెంచ్‌మార్క్‌లతో కూడిన తక్షణ సలహా.'
-                  : 'Grounded financial calculations, location analysis, and unit economics.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActive('Business Advisor')}
-              className="px-3 py-1.5 rounded-xl border border-border/80 bg-background text-xs font-semibold text-foreground hover:bg-muted transition-all cursor-pointer"
-            >
-              {isTe ? 'వ్యాపార సలహాదారు' : 'Business Advisor'}
-            </button>
-            <button
-              onClick={() => setActive('Finance Advisor')}
-              className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
-            >
-              {isTe ? 'ఆర్థిక సలహాదారు' : 'Finance Advisor'}
-            </button>
-          </div>
-        </div>
-
-        {/* RuralCred Grounded Intelligence Flow Architecture Banner */}
-        <div className="mt-5 p-4 rounded-2xl bg-card border border-border/80 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] uppercase font-bold tracking-widest text-primary flex items-center gap-1.5">
-              <Cpu className="size-3.5" />
-              {isTe ? 'రూరల్‌క్రెడ్ ఇంటెలిజెన్స్ ఆర్కిటెక్చర్' : 'RuralCred Intelligence Flow'}
-            </span>
-            <span className="text-[10px] text-muted-foreground font-mono">
-              Vector Grounding + Deterministic Logic
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
-            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center">
-              <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-1 text-[11px] font-bold">1</div>
-              <p className="text-xs font-bold text-foreground">{isTe ? 'యూజర్ లెడ్జర్' : 'Enterprise Data'}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{isTe ? 'లాగ్‌బుక్ & ఈక్విటీ' : 'Cash flow & capital'}</p>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center">
-              <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-1 text-[11px] font-bold">2</div>
-              <p className="text-xs font-bold text-foreground">{isTe ? 'స్థానిక మార్కెట్ డేటా' : 'Rural Grounding'}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{(profile.location || 'Warangal').split(',')[0]} Mandi</p>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 flex flex-col items-center">
-              <div className="size-6 rounded-lg bg-primary text-primary-foreground flex items-center justify-center mb-1 text-[11px] font-bold">3</div>
-              <p className="text-xs font-bold text-primary">{isTe ? 'ఖచ్చితమైన గణితం' : 'Deterministic Math'}</p>
-              <p className="text-[10px] text-primary/80 mt-0.5">{isTe ? 'రుణ అర్హత & EMI' : 'Cost, EMI & routing'}</p>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center">
-              <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-1 text-[11px] font-bold">4</div>
-              <p className="text-xs font-bold text-foreground">{isTe ? 'జెమినీ 2.5 విశ్లేషణ' : 'Gemini AI Analysis'}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{isTe ? 'SWOT & అవకాశాలు' : 'SWOT & pricing band'}</p>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col items-center col-span-2 md:col-span-1">
-              <div className="size-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center mb-1 text-[11px] font-bold">5</div>
-              <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">{isTe ? 'ఆచరణాత్మక వ్యూహం' : 'Actionable Plan'}</p>
-              <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400 mt-0.5">{isTe ? 'బ్యాంక్ లోన్ ప్రణాళిక' : 'Bank-ready credit'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Actionable Prompt Chips */}
-        <div className="mt-5 space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            {isTe ? 'సూచించిన ప్రశ్నలు' : 'Suggested Inquiries for your Enterprise'}:
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {suggestedAdvisorPrompts.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleQuickAsk(item.screen, item.query)}
-                className="flex items-center justify-between p-3 rounded-2xl border border-border/80 bg-background/80 hover:bg-background hover:border-primary/40 hover:shadow-2xs text-left transition-all duration-150 cursor-pointer group"
-              >
-                <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                  {isTe ? item.labelTe : item.labelEn}
-                </span>
-                <ArrowRight className="size-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Direct Navigation Footer */}
-        <div className="mt-6 pt-4 border-t border-primary/10 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="size-3.5 text-emerald-600" />
-            {isTe ? 'జీరో హాలూసినేషన్ • 100% నిజమైన గణాంకాలు' : 'Zero Hallucination • 100% Deterministic Math & Real Local Data'}
-          </span>
-          <button
-            onClick={() => setActive('Business Advisor')}
-            className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
-          >
-            <span>{isTe ? 'పూర్తి AI సంభాషణ ప్రారంభించండి' : 'Start Full Advisor Conversation'}</span>
-            <ChevronRight className="size-3.5" />
-          </button>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 5. OPPORTUNITIES & RISK ALERTS (Side-by-Side Dual Panels)                  */}
+      {/* 4. OPPORTUNITIES & RISK ALERTS (Side-by-Side Dual Panels)                  */}
       {/* ========================================================================= */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Government Scheme Opportunities Card */}

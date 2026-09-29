@@ -97,8 +97,10 @@ def simulate_scenario(
         triggered.append(f"DSCR Below Safe Threshold ({dscr:.2f}x < 1.25x).")
         triggered_te.append(f"DSCR భద్రతా ప్రమాణం కంటే తక్కువ ({dscr:.2f}x < 1.25x).")
 
-    alerts = [x for x in detected if x.severity == "alert"]
-    warnings = [x for x in detected if x.severity == "warning"]
+    risk_items = detected.detectedRisks if hasattr(detected, "detectedRisks") else detected
+    alerts = [x for x in risk_items if getattr(x, "severity", None) == "alert"]
+    warnings = [x for x in risk_items if getattr(x, "severity", None) == "warning"]
+
 
     risk_sev = "low"
     risk_sev_te = "తక్కువ రిస్క్ (Low)"

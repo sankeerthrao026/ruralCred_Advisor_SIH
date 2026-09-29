@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 export function SchemeMatchingScreen({ setActive }: { setActive?: (tab: string) => void }) {
-  const { finance, profile, language } = useApp();
+  const { finance, profile, language, setSelectedSchemeId } = useApp();
   const isTe = language === 'te';
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'eligible' | 'collateralFree' | 'subsidized'>('all');
@@ -273,7 +273,10 @@ export function SchemeMatchingScreen({ setActive }: { setActive?: (tab: string) 
                 <Button
                   variant={isCurrentlyRouted ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setActive?.('Finance Advisor')}
+                  onClick={() => {
+                    setSelectedSchemeId(scheme.schemeId);
+                    setActive?.('Finance Advisor');
+                  }}
                   className="text-xs font-semibold cursor-pointer gap-1"
                 >
                   <span>{isCurrentlyRouted ? (isTe ? 'అడ్వైజర్‌లో చూడండి' : 'Active in Advisor') : (isTe ? 'లెక్కించండి' : 'Simulate in Advisor')}</span>

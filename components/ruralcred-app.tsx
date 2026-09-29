@@ -146,16 +146,16 @@ function Sidebar({
   setOpen: (value: boolean) => void;
 }) {
   const { profile, language, detectedRisks, dictionary } = useApp();
-  const { signOut, exitDemo, isDemo } = useAuth();
+  const { user, signOut, exitDemo, isDemo } = useAuth();
   const isTe = language === 'te';
 
-  const initials = (profile?.name || 'Anita Sharma')
+  const initials = (profile?.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur'))
     .split(' ')
     .filter(Boolean)
-    .map((w) => w[0])
+    .map((w: string) => w[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase() || 'AS';
+    .toUpperCase() || 'E';
 
   return (
     <>
@@ -268,8 +268,8 @@ function Sidebar({
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{profile?.name || 'Anita Sharma'}</p>
-              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{profile?.businessName || 'Rural Enterprise'}</p>
+              <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{profile?.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur')}</p>
+              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{profile?.businessName || (isDemo ? 'Sharma Dairy Farm' : 'My Enterprises')}</p>
             </div>
             <ChevronRight className="size-4 text-slate-400 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300" />
           </button>
@@ -301,6 +301,7 @@ function Sidebar({
 
 function MainContent({ active, setActive }: { active: string; setActive: (value: string) => void }) {
   const { profile, language, detectedRisks, dictionary } = useApp();
+  const { user, isDemo } = useAuth();
   const isTe = language === 'te';
 
   const pageCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
@@ -311,7 +312,7 @@ function MainContent({ active, setActive }: { active: string; setActive: (value:
         month: 'long',
         year: 'numeric',
       }),
-      title: isTe ? `నమస్కారం, ${profile?.name || 'Anita Sharma'}` : `Good morning, ${profile?.name || 'Anita Sharma'}`,
+      title: isTe ? `నమస్కారం, ${profile?.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur')}` : `Good morning, ${profile?.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur')}`,
       description: isTe
         ? 'మీ గ్రామీణ వ్యాపారం యొక్క సమగ్ర ఆర్థిక స్థితి మరియు మార్కెట్ అవకాశాల సమాచారం.'
         : "Here's a clear, grounded view of how your rural enterprise is performing today.",
@@ -442,16 +443,16 @@ function RuralCredAppInner() {
     backendLoading,
     refreshBackendData,
   } = useApp();
-  const { signOut, exitDemo, isDemo } = useAuth();
+  const { user, signOut, exitDemo, isDemo } = useAuth();
   const isTe = language === 'te';
 
-  const initials = (profile?.name || 'Anita Sharma')
+  const initials = (profile?.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur'))
     .split(' ')
     .filter(Boolean)
-    .map((w) => w[0])
+    .map((w: string) => w[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase() || 'AS';
+    .toUpperCase() || 'E';
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -515,14 +516,6 @@ function RuralCredAppInner() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Demo Mode Indicator */}
-            {isDemo && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[11px] font-semibold border border-slate-200 dark:border-white/10 shadow-2xs">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Demo Mode</span>
-              </div>
-            )}
-
             {/* Multilingual Selector (English, Telugu) */}
             <div className="flex items-center rounded-lg border bg-card p-0.5 text-xs font-semibold shadow-2xs">
               {(['en', 'te'] as const).map((l) => (
@@ -602,10 +595,10 @@ function RuralCredAppInner() {
               </div>
               <div className="text-left">
                 <span className="text-xs font-semibold text-foreground block leading-tight">
-                  {profile?.name || 'Anita Sharma'}
+                  {profile?.name || user?.name || user?.email?.split('@')[0] || (isDemo ? 'Anita Sharma' : 'Entrepreneur')}
                 </span>
                 <span className="text-[10px] text-muted-foreground block truncate max-w-28">
-                  {profile?.businessName || 'Sharma Dairy Farm'}
+                  {profile?.businessName || (isDemo ? 'Sharma Dairy Farm' : 'My Enterprises')}
                 </span>
               </div>
             </button>
@@ -655,12 +648,64 @@ function AppLoadingShell() {
   );
 }
 
-function RuralCredAppGate() {
-  const { user, isInitialized } = useAuth();
-  const { hasCompletedOnboarding, updateProfile } = useApp();
+function PermissionDeniedScreen({
+  userEmail,
+  onRetry,
+  onSignOut,
+}: {
+  userEmail: string;
+  onRetry: () => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-background flex flex-col justify-center items-center px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border border-destructive/30 bg-card p-6 sm:p-8 shadow-xs text-center flex flex-col items-center gap-4">
+        <div className="grid size-12 place-items-center rounded-2xl bg-destructive/10 text-destructive">
+          <ShieldAlert className="size-6" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold font-sora tracking-tight text-foreground">
+            Firestore Access Denied
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            Authenticated as <strong className="text-foreground">{userEmail}</strong>, but Cloud Firestore security rules rejected read/write permissions for your user document.
+          </p>
+        </div>
+        <div className="w-full rounded-xl bg-muted/40 p-3 text-left text-[11px] text-muted-foreground font-mono space-y-1">
+          <p className="text-foreground font-semibold">Firebase Security Check:</p>
+          <p>• Verify firestore.rules are deployed to Firebase Console.</p>
+          <p>• Path: users/{'{userId}'} where request.auth.uid == userId</p>
+        </div>
+        <div className="flex gap-2 w-full mt-2">
+          <Button onClick={onRetry} className="flex-1 font-semibold cursor-pointer">
+            <RefreshCw className="size-3.5 mr-1.5" />
+            <span>Retry Connection</span>
+          </Button>
+          <Button variant="outline" onClick={onSignOut} className="font-semibold cursor-pointer">
+            <span>Sign Out</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  if (!isInitialized) {
+function RuralCredAppGate() {
+  const { user, isInitialized, signOut } = useAuth();
+  const { hasCompletedOnboarding, profileStatus, retryLoadUserData, updateProfile, profile } = useApp();
+
+  if (!isInitialized || (user && !user.isDemo && profileStatus === 'LOADING')) {
     return <AppLoadingShell />;
+  }
+
+  if (user && !user.isDemo && profileStatus === 'PERMISSION_DENIED' && !profile?.onboardingCompleted) {
+    return (
+      <PermissionDeniedScreen
+        userEmail={user.email}
+        onRetry={retryLoadUserData}
+        onSignOut={signOut}
+      />
+    );
   }
 
   return (

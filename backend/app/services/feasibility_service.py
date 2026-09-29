@@ -121,8 +121,10 @@ def evaluate_business_feasibility(req: FeasibilityEvaluateRequest) -> Feasibilit
     risk_reasons: List[str] = []
     risk_reasons_te: List[str] = []
 
-    alerts = [r for r in detected if r.severity == "alert"]
-    warnings = [r for r in detected if r.severity == "warning"]
+    risk_items = detected.detectedRisks if hasattr(detected, "detectedRisks") else detected
+    alerts = [r for r in risk_items if getattr(r, "severity", None) == "alert"]
+    warnings = [r for r in risk_items if getattr(r, "severity", None) == "warning"]
+
 
     if not alerts and not warnings:
         risk_score = 95.0

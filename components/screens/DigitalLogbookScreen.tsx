@@ -86,6 +86,35 @@ const DEFAULT_CATEGORIES = {
   ],
 };
 
+export const LOGBOOK_CATEGORIES_LOCALIZED: Record<string, { en: string; te: string }> = {
+  // Income
+  'Sales': { en: 'Sales', te: 'అమ్మకాలు' },
+  'Cooperative Payout': { en: 'Cooperative Payout', te: 'సహకార సంఘం చెల్లింపు' },
+  'Subsidy': { en: 'Subsidy', te: 'ప్రభుత్వ సబ్సిడీ' },
+  'Wholesale Off-take': { en: 'Wholesale Off-take', te: 'హోల్‌సేల్ అమ్మకం' },
+  'Service Fee': { en: 'Service Fee', te: 'సర్వీస్ రుసుము' },
+  'Other Income': { en: 'Other Income', te: 'ఇతర ఆదాయం' },
+  // Expense
+  'Raw Materials': { en: 'Raw Materials', te: 'ముడి సరుకులు' },
+  'Labor': { en: 'Labor', te: 'కూలీ / శ్రమ' },
+  'Fuel': { en: 'Fuel', te: 'ఇంధనం / డీజిల్' },
+  'Feed / Supplies': { en: 'Feed / Supplies', te: 'మేత / దాణా & సామాగ్రి' },
+  'Debt Repayment': { en: 'Debt Repayment', te: 'అప్పు చెల్లింపు' },
+  'Transport': { en: 'Transport', te: 'రవాణా ఖర్చులు' },
+  'Rent & Power': { en: 'Rent & Power', te: 'అద్దె & విద్యుత్' },
+  'Equipment Maintenance': { en: 'Equipment Maintenance', te: 'పరికరాల నిర్వహణ' },
+  'Healthcare / Veterinary': { en: 'Healthcare / Veterinary', te: 'వైద్యం / పశువైద్యం' },
+  'General Expenses': { en: 'General Expenses', te: 'సాధారణ ఖర్చులు' },
+  'Asset Repairs': { en: 'Asset Repairs', te: 'యంత్రాల మరమ్మతులు' },
+};
+
+export function getLocalizedCategoryName(categoryKey: string, isTe: boolean): string {
+  if (isTe && LOGBOOK_CATEGORIES_LOCALIZED[categoryKey]) {
+    return LOGBOOK_CATEGORIES_LOCALIZED[categoryKey].te;
+  }
+  return categoryKey;
+}
+
 const SUGGESTED_TAGS = [
   '#morning_batch',
   '#urgent',
@@ -750,7 +779,7 @@ export function DigitalLogbookScreen() {
                   >
                     {(type === 'income' ? DEFAULT_CATEGORIES.income : DEFAULT_CATEGORIES.expense).map((cat) => (
                       <option key={cat} value={cat}>
-                        {cat}
+                        {getLocalizedCategoryName(cat, isTe)}
                       </option>
                     ))}
                   </select>
@@ -830,7 +859,7 @@ export function DigitalLogbookScreen() {
                         if (customTagInput.trim()) handleAddTag(customTagInput);
                       }
                     }}
-                    placeholder="Type tag (e.g. #mandi, #wholesale) and press Enter"
+                    placeholder={isTe ? 'ట్యాగ్ టైప్ చేయండి (ఉదా: #mandi, #wholesale)...' : 'Type tag (e.g. #mandi, #wholesale) and press Enter'}
                     className="rounded-lg border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary flex-1 max-w-sm"
                   />
                   <Button
@@ -842,7 +871,7 @@ export function DigitalLogbookScreen() {
                     }}
                     className="h-8 text-xs font-medium cursor-pointer"
                   >
-                    + Add Tag
+                    {isTe ? '+ ట్యాగ్ జోడించండి' : '+ Add Tag'}
                   </Button>
                 </div>
 
@@ -913,7 +942,7 @@ export function DigitalLogbookScreen() {
                     typeFilter === 'all' ? 'bg-card text-foreground shadow-xs font-semibold' : 'text-muted-foreground'
                   }`}
                 >
-                  All
+                  {isTe ? 'అన్నీ' : 'All'}
                 </button>
                 <button
                   type="button"
@@ -922,7 +951,7 @@ export function DigitalLogbookScreen() {
                     typeFilter === 'income' ? 'bg-emerald-600 text-white font-semibold' : 'text-muted-foreground'
                   }`}
                 >
-                  Income
+                  {isTe ? 'రాబడి' : 'Income'}
                 </button>
                 <button
                   type="button"
@@ -931,7 +960,7 @@ export function DigitalLogbookScreen() {
                     typeFilter === 'expense' ? 'bg-rose-600 text-white font-semibold' : 'text-muted-foreground'
                   }`}
                 >
-                  Expense
+                  {isTe ? 'ఖర్చు' : 'Expense'}
                 </button>
               </div>
 
@@ -941,17 +970,17 @@ export function DigitalLogbookScreen() {
                 onChange={(e) => setDateRangeFilter(e.target.value as any)}
                 className="rounded-lg border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary cursor-pointer"
               >
-                <option value="all">All Dates</option>
-                <option value="today">Today Only</option>
-                <option value="last7">Last 7 Days</option>
-                <option value="last30">Last 30 Days</option>
+                <option value="all">{isTe ? 'అన్ని తేదీలు' : 'All Dates'}</option>
+                <option value="today">{isTe ? 'నేడు మాత్రమే' : 'Today Only'}</option>
+                <option value="last7">{isTe ? 'గత 7 రోజులు' : 'Last 7 Days'}</option>
+                <option value="last30">{isTe ? 'గత 30 రోజులు' : 'Last 30 Days'}</option>
               </select>
             </div>
 
             {/* Tags quick filter chips */}
             {allUniqueTags.length > 0 && (
               <div className="flex flex-wrap items-center gap-1">
-                <span className="text-[11px] text-muted-foreground font-medium mr-1">Tags:</span>
+                <span className="text-[11px] text-muted-foreground font-medium mr-1">{isTe ? 'ట్యాగ్‌లు:' : 'Tags:'}</span>
                 {allUniqueTags.slice(0, 4).map((tagItem) => (
                   <button
                     key={tagItem}
@@ -970,7 +999,7 @@ export function DigitalLogbookScreen() {
                     onClick={() => setActiveTagFilter(null)}
                     className="text-[10px] text-rose-600 hover:underline font-semibold cursor-pointer ml-1"
                   >
-                    Clear tag
+                    {isTe ? 'ట్యాగ్ తీసివేయి' : 'Clear tag'}
                   </button>
                 )}
               </div>
@@ -1067,7 +1096,7 @@ export function DigitalLogbookScreen() {
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                            {entry.category}
+                            {getLocalizedCategoryName(entry.category, isTe)}
                           </span>
                         </td>
                         <td
@@ -1284,7 +1313,7 @@ export function DigitalLogbookScreen() {
                                     : 'bg-rose-500/10 text-rose-800 dark:text-rose-400'
                                 }`}
                               >
-                                {isCustomer ? "You'll Get" : "You'll Pay"}
+                                {isCustomer ? (isTe ? 'రావాల్సినవి' : "You'll Get") : (isTe ? 'ఇవ్వాల్సినవి' : "You'll Pay")}
                               </span>
                               {item.partyPhone && (
                                 <span className="text-[10px] text-muted-foreground">{item.partyPhone}</span>
@@ -1298,7 +1327,7 @@ export function DigitalLogbookScreen() {
                             {item.dueDate && (
                               <div className="text-[10px] font-medium text-amber-900 dark:text-amber-300 mt-0.5 flex items-center gap-1">
                                 <Clock className="size-3" />
-                                <span>Due: {formatIsoToDisplayDate(item.dueDate)}</span>
+                                <span>{isTe ? 'గడువు: ' : 'Due: '}{formatIsoToDisplayDate(item.dueDate)}</span>
                               </div>
                             )}
                           </td>

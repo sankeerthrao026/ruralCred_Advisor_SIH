@@ -31,24 +31,14 @@ import {
 } from 'lucide-react';
 
 export function CreditScoreScreen({ setActive }: { setActive?: (value: string) => void }) {
-  const { entries, profile, finance, netCashFlow, language } = useApp();
+  const { entries, profile, finance, netCashFlow, language, creditReadiness } = useApp();
   const isTe = language === 'te';
   const isHi = language === 'hi';
 
   const [downloading, setDownloading] = useState(false);
 
-  // Calculate deterministic 30/40/30 alternative credit readiness from real logbook data
-  const creditResult: CreditReadinessResult = useMemo(() => {
-    const liquidBuffer = Math.round(finance.projectCost * 0.10);
-    const availableCash = Math.max(0, netCashFlow) + liquidBuffer;
-
-    return calculateCreditReadiness(entries, {
-      availableCashOverride: availableCash,
-      userName: profile.name,
-      businessName: profile.businessName,
-    });
-  }, [entries, netCashFlow, finance.projectCost, profile.name, profile.businessName]);
-
+  // Authoritative deterministic 30/40/30 alternative credit readiness from AppContext
+  const creditResult: CreditReadinessResult = creditReadiness;
   const { overallScore, cibilEquivalent, grade, gradeTe, summary, summaryTe, components, suggestions } = creditResult;
 
   // Handle PDF Certificate download

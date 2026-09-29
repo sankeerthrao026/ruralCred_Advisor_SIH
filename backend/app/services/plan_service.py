@@ -469,8 +469,8 @@ def generate_unified_business_plan(req: BusinessPlanRequest) -> BusinessPlanResp
     quarterly_emi = chosen_scheme.quarterlyEmi
     subsidy_pct = chosen_scheme.subsidyPercent
     subsidy_amt = chosen_scheme.subsidyAmount
-    promoter_margin = chosen_scheme.promoterContribution
-    promoter_pct = chosen_scheme.promoterContributionPercent
+    promoter_margin = chosen_scheme.promoterContribution if chosen_scheme.promoterContribution > 0 else margin_cap
+    promoter_pct = chosen_scheme.promoterContributionPercent if chosen_scheme.promoterContributionPercent > 0 else round((promoter_margin / max(1.0, project_cost)) * 100, 1)
 
     # 3. Capital Deployment Allocations (Capex vs Opex)
     cfg = get_category_config(req.category)

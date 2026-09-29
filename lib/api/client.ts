@@ -5,6 +5,7 @@
  */
 
 import { DetectedRisk } from '@/lib/risk/engine';
+import { getFirebaseIdToken } from '@/lib/firebase/auth';
 
 export interface SchemeDetails {
   id: string;
@@ -209,6 +210,15 @@ async function requestJson<T>(
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+
+  try {
+    const token = await getFirebaseIdToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  } catch (e) {
+    // Gracefully continue without token in demo / offline mode
+  }
 
   if (userId) {
     headers['X-User-Id'] = userId;
