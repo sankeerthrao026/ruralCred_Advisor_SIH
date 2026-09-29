@@ -5,18 +5,23 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React-1B2A4A?logo=react&logoColor=61DAFB" alt="React" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Gemini-1B2A4A?logo=googlegemini&logoColor=white" alt="Gemini" />
-  <img src="https://img.shields.io/badge/ChromaDB-2F8F5B" alt="ChromaDB" />
-  <img src="https://img.shields.io/badge/Firebase-DD2C00?logo=firebase&logoColor=white" alt="Firebase" />
-  <img src="https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-1B2A4A?style=flat-square&logo=react&logoColor=61DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/NVIDIA_Nemotron_3_Ultra-76B900?style=flat-square&logo=nvidia&logoColor=white" alt="NVIDIA Nemotron 3 Ultra" />
+  <img src="https://img.shields.io/badge/ChromaDB-2F8F5B?style=flat-square" alt="ChromaDB" />
+  <img src="https://img.shields.io/badge/Firebase-DD2C00?style=flat-square&logo=firebase&logoColor=white" alt="Firebase" />
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=12141C" alt="Supabase" />
 </p>
 
-<p align="center"><strong>Deterministic finance. Grounded AI advisory. Bilingual, voice-first — built for users banks currently can't see.</strong></p>
+<p align="center">
+  <img src="https://img.shields.io/badge/100%25_deterministic_finance-1B2A4A?style=flat-square" alt="Deterministic finance" />
+  <img src="https://img.shields.io/badge/RAG_grounded_advisory-2F8F5B?style=flat-square" alt="RAG-grounded advisory" />
+  <img src="https://img.shields.io/badge/English_·_Telugu-E3A857?style=flat-square" alt="English and Telugu" />
+  <img src="https://img.shields.io/badge/voice_first-F7F8FA?style=flat-square" alt="Voice-first" />
+</p>
 
 ---
 
@@ -47,16 +52,16 @@
 
 ---
 
-## 📖 Table of Contents
+## 📖 Contents
 
 - [The Problem](#-the-problem)
 - [Our Solution](#-our-solution)
 - [System Architecture](#-system-architecture)
-- [Design Philosophy — AI vs Deterministic Logic](#-design-philosophy--ai-vs-deterministic-logic)
+- [Design Philosophy](#-design-philosophy)
 - [Core Modules](#-core-modules)
 - [Tech Stack](#-tech-stack)
 - [Quick Start](#-quick-start)
-- [Automated Testing](#-automated-testing)
+- [Testing](#-testing)
 - [Configuration](#-configuration)
 - [API Reference](#-api-reference)
 - [Project Structure](#-project-structure)
@@ -66,34 +71,32 @@
 
 ## 🎯 The Problem
 
-Rural micro-entrepreneurs across India run real businesses — kirana stores, dairy and poultry units, small agri-processing units, tailoring and craft enterprises — almost entirely on instinct. There is no bookkeeping, no credit history, and no structured way to track pricing, cash flow, or profitability.
+Rural micro-entrepreneurs run real businesses — kirana stores, dairy and poultry units, agri-processing, tailoring — almost entirely on instinct. No bookkeeping, no credit history, no way to track pricing, cash flow, or profitability.
 
-This isn't a knowledge gap that a generic app can fix. It's a structural exclusion problem:
+This is structural exclusion, not a knowledge gap:
 
-- **Less than 22% of MSMEs in India have access to formal credit** — data scarcity, not creditworthiness, is the core barrier lenders cite. *(TransUnion CIBIL–SIDBI MSME Pulse Report, July 2026)*
-- **Existing advisory tools are generic and national-level.** They ignore the hyper-local factors that actually drive a rural business — local mandi prices, seasonal and festival demand, regional competition, and district-specific government schemes.
-- **The result:** entrepreneurs can't access formal credit, can't plan expansion with confidence, and can't even benchmark whether their own business is actually profitable.
-
-Two problems compound each other — no business advisory, and no financial structuring — and neither is solvable in isolation. Bad decisions create cash-flow stress, which pushes entrepreneurs toward informal high-interest lending, which leaves less capital for the business, which leads to worse decisions. Solving only one half of this loop treats a symptom, not the cause.
+- **< 22% of Indian MSMEs have access to formal credit** — data scarcity, not creditworthiness, is the barrier lenders cite. *(TransUnion CIBIL–SIDBI MSME Pulse Report, July 2026)*
+- **Existing tools are generic and national-level.** They ignore what actually drives a rural business — mandi prices, seasonal/festival demand, local competition, district-specific schemes.
+- **The loop:** bad decisions → cash-flow stress → informal high-interest lending → less capital → worse decisions. Fixing only one half treats a symptom.
 
 ---
 
 ## 💡 Our Solution
 
-**RuralCred Advisor** addresses both halves of that loop in one system — built around the reality of a rural user: low or no literacy, vernacular-first communication, unreliable connectivity, and zero formal financial history.
+One system for both halves of the loop — built for low literacy, vernacular-first users, patchy connectivity, and zero financial history.
 
-| Capability | What it means for the user |
+| Capability | What it does |
 |---|---|
-| **Digital Logbook** | Converts voice, text, and handwritten ledger entries (via OCR) into structured business records — no behavior change required |
-| **AI Business Advisor** | Hyper-local pricing, demand, and timing recommendations, grounded in real local market and scheme data — not generic advice |
-| **Deterministic Finance Engine** | Project cost, eligible loan amount, scheme routing, EMI, and full amortization schedules — fixed, auditable formulas, not AI guesswork |
-| **Financial Health Score** | Transparent 0–100 score from logging consistency, profit trend, and expense discipline — explainable, not a black box |
-| **Rule-Based Risk Engine** | Flags over-leverage, negative cash flow, and downward cash-flow trends before they become a crisis |
-| **Scheme Matching** | Matches the entrepreneur's actual profile against real government and NBFC schemes — not generic listings |
-| **Bilingual, Voice-First** | Full English/Telugu support with speech recognition and synthesis — literacy is never a barrier |
-| **Offline-Resilient** | Core functions remain usable without continuous connectivity |
+| **Digital Logbook** | Voice, text & handwritten (OCR) entries become structured records — no behavior change needed |
+| **AI Business Advisor** | Hyper-local pricing, demand & timing advice grounded in real market and scheme data |
+| **Deterministic Finance Engine** | Project cost, loan eligibility, scheme routing, EMI & amortization — auditable formulas, never AI guesswork |
+| **Financial Health Score** | Transparent 0–100 from logging consistency, profit trend & expense discipline — no black box |
+| **Rule-Based Risk Engine** | Flags over-leverage, negative cash flow & downward trends before they become crises |
+| **Scheme Matching** | Real government & NBFC schemes matched to the entrepreneur's actual profile |
+| **Bilingual, Voice-First** | Full English/Telugu with speech recognition & synthesis — literacy is never a barrier |
+| **Offline-Resilient** | Core functions work without continuous connectivity |
 
-> **Generative AI explains and advises. It never decides.** Every number that touches a user's money — project cost, loan eligibility, EMI, risk flags, the health score — is computed by deterministic, auditable logic. Gemini (via a RAG pipeline grounded in real local data) only turns that grounded context into clear, conversational advice. The AI is never the single point of failure for a recommendation that affects someone's livelihood.
+> **Generative AI explains and advises. It never decides.** Every number touching a user's money is computed by deterministic, auditable logic. NVIDIA Nemotron 3 Ultra — grounded via RAG on real local data — only turns that context into clear, conversational advice. The AI is never the single point of failure for a livelihood-affecting recommendation.
 
 ---
 
@@ -101,50 +104,55 @@ Two problems compound each other — no business advisory, and no financial stru
 
 ```mermaid
 flowchart TB
-    U["Rural Entrepreneur<br/>voice · text · Telugu · English"] --> FE["Next.js + React Frontend<br/>UI · Charts · Forms · Speech"]
-    FE -->|"REST / HTTP"| BE["FastAPI Backend<br/>Source of Truth"]
-    BE --> FIN["Finance Engine<br/>100% deterministic"]
-    BE --> RISK["Risk Engine<br/>Invariant Rules 1 · 2 · 3"]
-    BE --> API["Application APIs<br/>Profile · Logbook · Dashboard"]
-    FIN --> RAG["AI / RAG Pipeline"]
-    RISK --> RAG
-    API --> RAG
-    RAG --> CDB[("ChromaDB<br/>ruralcred_knowledge")]
-    RAG --> LOC["Local datasets<br/>mandi · schemes · districts"]
-    RAG --> GEM["Gemini 2.5 Flash<br/>Grounded generation"]
-    GEM --> RESP["Grounded answer<br/>+ deterministic numbers"]
-    RESP --> FE
-    RESP --> FS[("Firestore<br/>user-isolated")]
-    RESP --> AUTH["Supabase Auth<br/>identity"]
+    subgraph UI["🖥️ Experience"]
+        U["Rural entrepreneur<br/>voice · text · Telugu · English"] --> FE["Next.js + React<br/>UI · charts · speech"]
+    end
+    subgraph SVC["⚙️ FastAPI Backend"]
+        BE["REST API layer"] --> FIN["Finance Engine<br/>100% deterministic"]
+        BE --> RSK["Risk Engine<br/>rules 1 · 2 · 3"]
+        BE --> API["App APIs<br/>profile · logbook · dashboard"]
+    end
+    subgraph AI["🧠 Grounded Intelligence"]
+        CDB[("ChromaDB<br/>ruralcred_knowledge")] --> NEMO["NVIDIA Nemotron 3 Ultra<br/>grounded generation"]
+        LOC["Local datasets<br/>mandi · schemes · districts"] --> NEMO
+    end
+    FE <--> BE
+    BE --> CDB
+    NEMO --> ANS["Grounded answer<br/>+ deterministic numbers"]
+    ANS --> FE
+    ANS --> FS[("Firestore<br/>user-isolated")]
+    ANS --> AU["Supabase Auth<br/>identity"]
 
     classDef gold fill:#E3A857,stroke:#1B2A4A,color:#12141C
     classDef navy fill:#1B2A4A,stroke:#E3A857,color:#FFFFFF
     classDef green fill:#2F8F5B,stroke:#1B2A4A,color:#FFFFFF
     classDef ink fill:#12141C,stroke:#E3A857,color:#FFFFFF
     classDef light fill:#F7F8FA,stroke:#1B2A4A,color:#12141C
+    classDef nvidia fill:#76B900,stroke:#1B2A4A,color:#12141C
 
-    class U,GEM gold
-    class FE,BE navy
-    class FIN,RISK green
-    class API,CDB,LOC light
-    class RESP,FS,AUTH ink
+    class U,FE navy
+    class BE,API light
+    class FIN,RSK green
+    class CDB,LOC light
+    class NEMO nvidia
+    class ANS,FS,AU ink
 ```
 
-**Data flow in one line:** user question → conversation context → embedding → ChromaDB retrieval → grounded context → Gemini → query-specific answer → frontend — while every financial number in that answer comes from the deterministic Finance and Risk engines, never from the language model.
+**One-line data flow:** question → context → embedding → ChromaDB retrieval → grounded context → Nemotron 3 Ultra → answer — with every financial number supplied by the deterministic engines, never the model.
 
-Provenance is a first-class concept: **retrieved evidence**, **calculated values**, and **LLM synthesis** are tracked as three separate things, and the system never claims ChromaDB retrieved text it didn't.
+Provenance is first-class: **retrieved evidence**, **calculated values**, and **LLM synthesis** are tracked separately — the system never claims ChromaDB retrieved text it didn't.
 
 ---
 
-## ⚖️ Design Philosophy — AI vs Deterministic Logic
+## ⚖️ Design Philosophy
 
 | Layer | Type | Why |
 |---|---|---|
-| Project cost, loan eligibility, EMI, amortization | **Deterministic** | Facts, not predictions — no reason to inject AI uncertainty into arithmetic that affects someone's loan |
-| Financial Health Score | **Deterministic** (weighted rules) | Fully explainable to the user and to a judge/regulator — no black-box scoring |
-| Risk flags (Rules 1–3) | **Deterministic** | A risk trigger must be reproducible and auditable, not probabilistic |
-| Advisory language | **Generative AI** (RAG + Gemini) | Conversational explanation genuinely benefits from an LLM — but only once grounded in real retrieved data |
-| Scheme / context retrieval | **Vector similarity** (ChromaDB) | Anchors advice to real local data, not memorized or hallucinated information |
+| Project cost, loan eligibility, EMI, amortization | **Deterministic** | Facts, not predictions — no AI uncertainty in arithmetic that affects a loan |
+| Health score | **Deterministic** (weighted rules) | Explainable to user, judge, or regulator — no black box |
+| Risk flags (Rules 1–3) | **Deterministic** | Reproducible and auditable, not probabilistic |
+| Advisory language | **Generative AI** (RAG + Nemotron 3 Ultra) | Conversation benefits from an LLM — but only once grounded in retrieved data |
+| Scheme / context retrieval | **Vector similarity** (ChromaDB) | Anchored to real local data, never hallucinated |
 
 **AI where judgment and language matter. Deterministic logic where facts and money are involved.**
 
@@ -154,41 +162,30 @@ Provenance is a first-class concept: **retrieved evidence**, **calculated values
 
 ### Frontend — Next.js + React + TypeScript
 
-- **Visual design system** — Sora for headings, Inter for body/data; the RuralCred palette:
+- **Design system** — Sora headings, Inter body/data, Lucide icons (zero emojis in the UI):
 
   ![Ink](https://img.shields.io/badge/Ink-12141C?style=flat-square) ![Indigo](https://img.shields.io/badge/Indigo-1B2A4A?style=flat-square) ![Marigold](https://img.shields.io/badge/Marigold-E3A857?style=flat-square) ![Growth](https://img.shields.io/badge/Growth-2F8F5B?style=flat-square) ![Alert](https://img.shields.io/badge/Alert-B23B3B?style=flat-square) ![Canvas](https://img.shields.io/badge/Canvas-F7F8FA?style=flat-square)
 
   `ink #12141C` · `indigo #1B2A4A` · `marigold #E3A857` · `growth #2F8F5B` · `alert #B23B3B` · `canvas #F7F8FA`
 
-- **Bilingual support** — instant toggle between English and Telugu (తెలుగు); one active language at a time, no mixed-language labels
-- **Voice & accessibility** — Web Speech API for Telugu/English speech recognition and synthesis; receipt/ledger OCR via Tesseract.js
-- **Analytics visualization** — Recharts-powered cash-flow, income vs. expense, and category cost views with real-data entrance animations
+- **Bilingual** — instant English ⇄ Telugu (తెలుగు) toggle; one active language, no mixed labels
+- **Voice & OCR** — Web Speech API (STT/TTS) for Telugu/English; Tesseract.js for handwritten ledgers
+- **Analytics** — Recharts cash-flow, income-vs-expense and category views with real-data animations
 
-### Backend — Python + FastAPI (Source of Truth)
+### Backend — FastAPI (Source of Truth)
 
-**Deterministic Finance Engine**
+**Finance Engine (deterministic)**
 
-- `Project Cost = Margin Capital ÷ 0.10`
-- `Eligible Loan Amount = 90% of Project Cost`
-- **Micro Finance Scheme** (Project Cost ≤ ₹1.40 Lakh): 6.5% p.a., 3-year tenure, 3-month moratorium
-- **Term Loan Scheme** (₹1.40 Lakh < Project Cost ≤ ₹50 Lakh): 8.0% p.a., 7-year tenure, 6-month moratorium
-- Quarterly reducing-balance EMI formula with full amortization schedule
+- `Project Cost = Margin Capital ÷ 0.10` · `Eligible Loan = 90% of Project Cost`
+- **Micro Finance** (≤ ₹1.40L): 6.5% p.a., 3-yr tenure, 3-month moratorium
+- **Term Loan** (₹1.40L–₹50L): 8.0% p.a., 7-yr tenure, 6-month moratorium
+- Quarterly reducing-balance EMI + full amortization schedule
 
-**Rule-Based Risk Engine**
+**Risk Engine** — `RULE_1` over-leverage · `RULE_2` negative cash flow · `RULE_3` >30% downward trend
 
-- `RULE_1` — active loan + second loan simulation (over-leverage alert)
-- `RULE_2` — negative net cash flow (expenses exceed receipts)
-- `RULE_3` — downward net cash-flow trend (>30% drop from prior cycle)
+**Health Score (0–100)** — 30% logging consistency · 40% profit trend · 30% expense discipline
 
-**Financial Health Score (0–100)**
-
-- 30% logging-habit consistency · 40% net operating profit trend · 30% expense-to-income discipline
-
-**ChromaDB Vector Store & RAG Pipeline**
-
-- Persistent semantic index (`ruralcred_knowledge`) of district demographics, mandi prices, and statutory schemes
-- Repeatable ingestion via `python -m app.ingestion.ingest`
-- Grounded context passed directly to Gemini (`gemini-2.5-flash`); a strict safety prompt ensures the generative layer never computes finance math or invents data
+**RAG Pipeline** — persistent `ruralcred_knowledge` index of demographics, mandi prices & schemes (`python -m app.ingestion.ingest`); grounded context fed to Nemotron 3 Ultra via NVIDIA NIM; a strict safety prompt bars the model from computing finance math or inventing data.
 
 ---
 
@@ -196,82 +193,47 @@ Provenance is a first-class concept: **retrieved evidence**, **calculated values
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Frontend | Next.js + React + TypeScript | App pages, components, state, routing, UI |
-| Styling | Tailwind CSS | Responsive styling and the RuralCred visual system |
+| Frontend | Next.js + React + TypeScript | Pages, components, state, routing |
+| Styling | Tailwind CSS | The RuralCred visual system |
 | Backend | Python + FastAPI | API layer, orchestration, business logic |
-| Auth | Supabase Auth | Login, registration, sessions, identity |
-| App database | Firebase Firestore | User-isolated persistence — profiles, logbook, state |
-| Vector database | ChromaDB | Embedding storage and retrieval for RAG |
-| Generative AI | Gemini API (`gemini-2.5-flash`) | Natural-language advisory and conversation |
-| AI architecture | RAG | Retrieves grounded knowledge before generation |
-| Voice | Web Speech API | Speech recognition (STT) and synthesis (TTS) |
-| Charts | Recharts | Income / expense / cash-flow visualization |
-| Icons | Lucide React | Professional vector icons — no emojis in the UI |
-| OCR | Tesseract.js | Handwritten ledger / receipt text extraction |
-| Hosting | Vercel (frontend) · backend host TBD | Delivery |
-| Version control | Git + GitHub | Source control and collaboration |
+| Auth | Supabase Auth | Identity, sessions |
+| App DB | Firebase Firestore | User-isolated persistence |
+| Vector DB | ChromaDB | RAG embedding storage & retrieval |
+| LLM | NVIDIA Nemotron 3 Ultra (via NIM) | Grounded advisory & conversation |
+| Voice | Web Speech API | STT + TTS |
+| Charts | Recharts | Financial visualization |
+| OCR | Tesseract.js | Ledger / receipt extraction |
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Node.js 18+ and npm
-- Python 3.10+
-
-### Backend — FastAPI + ChromaDB
+**Prerequisites:** Node.js 18+ · Python 3.10+
 
 ```bash
-# 1. Navigate to backend and create a virtual environment
+# Backend — FastAPI + ChromaDB
 cd backend
-python -m venv venv
-
-# Windows
-.\venv\Scripts\Activate.ps1
-# macOS / Linux
-source venv/bin/activate
-
-# 2. Install dependencies
+python -m venv venv && source venv/bin/activate   # Windows: .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# 3. Ingest the local knowledge base into ChromaDB
-python -m app.ingestion.ingest
-
-# 4. Start the FastAPI server
+python -m app.ingestion.ingest                     # build the ChromaDB index
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-- Health check → `http://127.0.0.1:8000/health`
-- Interactive API docs → `http://127.0.0.1:8000/docs`
-
-### Frontend — Next.js
+Health check → `http://127.0.0.1:8000/health` · API docs → `http://127.0.0.1:8000/docs`
 
 ```bash
-# From the repository root
+# Frontend — Next.js (repo root)
 npm install
-npm run dev
+npm run dev          # → http://localhost:3000
 ```
-
-Visit the application at `http://localhost:3000` and continue as a demo user, or sign in.
 
 ---
 
-## ✅ Automated Testing
-
-**Backend — Pytest**
+## ✅ Testing
 
 ```bash
-pytest backend/tests -v
-```
-
-Verifies micro/term-loan boundaries, quarterly EMI math, zero-balance amortization schedules, deterministic 0–100 health scoring, risk rules 1–3, ChromaDB semantic queries, and logbook user isolation (User A never sees User B's entries).
-
-**Frontend — Typecheck & Build**
-
-```bash
-npx tsc --noEmit
-npm run build
+pytest backend/tests -v     # loan boundaries, EMI math, health score, risk rules, RAG, user isolation
+npx tsc --noEmit && npm run build
 ```
 
 ---
@@ -279,25 +241,24 @@ npm run build
 ## 🔧 Configuration
 
 <details>
-<summary><strong>Environment variables</strong> — click to expand</summary>
+<summary><strong>Environment variables</strong></summary>
 
 <br />
 
-Create a `.env` / `.env.local` with the following keys. Never commit this file.
-
 ```env
-# Gemini API key — required for live AI generation;
-# a resilient grounded local fallback is active when absent
-GEMINI_API_KEY=<your-gemini-api-key>
+# NVIDIA NIM key — live Nemotron advisory; grounded local fallback when absent
+NVIDIA_API_KEY=<your-nvidia-key>
 
-# Supabase Auth (optional — a resilient scoped local session is active by default)
+# Supabase Auth (optional — scoped local session by default)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 
-# Firebase Firestore (optional — resilient isolated local storage is active by default)
-NEXT_PUBLIC_FIREBASE_API_KEY=<your-firebase-api-key>
+# Firebase Firestore (optional — isolated local storage by default)
+NEXT_PUBLIC_FIREBASE_API_KEY=<your-firebase-key>
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=<your-project-id>
 ```
+
+Never commit `.env` / `.env.local` or any keys.
 
 </details>
 
@@ -306,23 +267,21 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=<your-project-id>
 ## 🔌 API Reference
 
 <details>
-<summary><strong>Endpoints</strong> — click to expand</summary>
+<summary><strong>Endpoints</strong></summary>
 
 <br />
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/health` | Health status, ChromaDB connection, Gemini configuration |
-| `GET` | `/api/profile` | Retrieve the authenticated user's profile |
-| `POST` | `/api/profile` | Create or update the user profile and onboarding status |
-| `POST` | `/api/finance/calculate` | Deterministic project cost, scheme routing, EMI, amortization |
-| `GET` | `/api/finance/health-score` | Deterministic 0–100 financial health score |
-| `POST` | `/api/risk/analyze` | Evaluate deterministic invariant financial risk rules |
-| `GET` | `/api/logbook` | List user-scoped logbook transactions |
-| `POST` | `/api/logbook` | Add an income or expense transaction |
+| `GET` | `/health` | Health, ChromaDB & LLM status |
+| `GET` / `POST` | `/api/profile` | Retrieve / create-or-update user profile |
+| `POST` | `/api/finance/calculate` | Project cost, scheme routing, EMI, amortization |
+| `GET` | `/api/finance/health-score` | Deterministic 0–100 health score |
+| `POST` | `/api/risk/analyze` | Invariant risk rules evaluation |
+| `GET` / `POST` | `/api/logbook` | List / add user-scoped transactions |
 | `DELETE` | `/api/logbook/{entry_id}` | Delete a transaction |
-| `GET` | `/api/dashboard` | Aggregated dashboard — metrics, trends, risks, health score |
-| `POST` | `/api/advisor/analyze` | ChromaDB RAG retrieval + Gemini-grounded business advisory |
+| `GET` | `/api/dashboard` | Metrics, trends, risks, health score |
+| `POST` | `/api/advisor/analyze` | RAG retrieval + Nemotron-grounded advisory |
 
 </details>
 
@@ -332,17 +291,13 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=<your-project-id>
 
 ```
 ruralCred_Advisor_SIH/
-├── app/            # Next.js frontend (pages, routing)
-├── backend/        # FastAPI backend (finance engine, risk engine, RAG, APIs)
+├── app/            # Next.js frontend
+├── backend/        # FastAPI — finance engine, risk engine, RAG, APIs
 ├── components/     # React components & design system
-├── lib/            # Shared frontend utilities (i18n, finance helpers)
-├── hooks/          # React hooks
-├── context/        # React context providers
-├── data/           # Local datasets (mandi prices, schemes, districts)
-├── docs/           # Documentation & screenshots
-├── scripts/        # Utility scripts
-├── test/           # Frontend tests
-└── backend/tests/  # Pytest suite
+├── lib/ · hooks/ · context/
+├── data/           # mandi prices, schemes, districts
+├── docs/           # docs & screenshots
+├── scripts/  test/  backend/tests/
 ```
 
 ---
@@ -350,12 +305,12 @@ ruralCred_Advisor_SIH/
 ## 👥 Team
 
 <p align="center">
-  <strong>Pixel Scripters</strong><br />
-  Dhananjay Sharma · Rao Sankeerth · Granth Jigneshbhai Mangukiya · Medavarapu Saathvik · K. Akshith Kumar
+  <strong>Pixel Engineers</strong><br />
+  Dhananjay Sharma · Rao Sankeerth · Granth Jigneshbhai Mangukiya · Medavarapu Saathvik · K. Akshith Kumar · Niteeksha
 </p>
 
 ---
 
 <p align="center">
-  <sub>Built for <strong>Smart India Hackathon 2026</strong> — deterministic finance, grounded AI, and dignity-first design for rural micro-entrepreneurs. 🌾</sub>
+  <sub>Built for <strong>THE SMART INDIA HACKATHON (SIH)</strong> — deterministic finance, grounded AI, dignity-first design for rural micro-entrepreneurs. 🌾</sub>
 </p>
