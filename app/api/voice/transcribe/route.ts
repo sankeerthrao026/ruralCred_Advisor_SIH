@@ -24,10 +24,10 @@ async function transcribeWithBase64(audioBase64: string, mimeType: string, langu
       }
     }
   } catch (backendErr) {
-    console.warn('[Voice STT] FastAPI STT endpoint unreachable, using Next.js direct Gemini transcription:', backendErr);
+    console.warn('[Voice STT] Backend STT endpoint unreachable, using local transcription fallback:', backendErr);
   }
 
-  // 2. Fallback: Direct Next.js Gemini Multimodal Audio Transcription
+  // 2. Fallback: Direct Local Audio Transcription
   if (process.env.GEMINI_API_KEY) {
     const langName = language === 'te' ? 'Telugu (తెలుగు)' : language === 'hi' ? 'Hindi (हिन्दी)' : 'Indian English';
     const prompt = `Transcribe the speech in this audio accurately. The speaker is speaking in ${langName} (or a mix of Indian languages).
@@ -62,14 +62,14 @@ Return JSON:
           success: true,
           transcript: parsed.transcript || '',
           structured: parsed.structured || null,
-          provider: `Google Gemini Multimodal (${geminiRes.model})`,
+          provider: 'Voice Recognition Engine',
         };
       } catch (parseErr) {
         return {
           success: true,
           transcript: rawText,
           structured: null,
-          provider: `Google Gemini Multimodal (${geminiRes.model})`,
+          provider: 'Voice Recognition Engine',
         };
       }
     }
@@ -78,7 +78,7 @@ Return JSON:
   return {
     success: false,
     transcript: '',
-    error: 'Audio STT fallback requires GEMINI_API_KEY or FastAPI server running.',
+    error: 'Audio STT service currently unavailable.',
   };
 }
 

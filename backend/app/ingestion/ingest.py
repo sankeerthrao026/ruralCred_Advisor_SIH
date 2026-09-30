@@ -1,6 +1,12 @@
 import json
 import os
+import sys
 from pathlib import Path
+
+backend_dir = Path(__file__).resolve().parent.parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
 from app.config import settings
 from app.services.chroma_service import chroma_service
 
@@ -14,7 +20,8 @@ def load_json(file_path: Path):
 def ingest_all_datasets():
     """
     Repeatable Document Ingestion Pipeline for RuralCred:
-      1. Reads approved local datasets (market-data, population-data, schemes).
+      1. Reads approved local datasets (market-data, population-data, schemes,
+         equipment-data, infrastructure-data, compliance-data, discovery-data, financial-literacy-data).
       2. Normalizes into rich contextual chunks.
       3. Embeds and stores into ChromaDB vector store with metadata.
     """
@@ -115,6 +122,152 @@ Scheme Overview: {scheme.get('description')}
                 "scheme_id": scheme.get("id"),
                 "name": scheme.get("name"),
                 "rate": float(scheme.get("interestRate", 0)),
+            })
+            ids.append(doc_id)
+
+    # 4. Ingest Equipment & Bill of Materials (BOM)
+    equip_file = data_dir / "equipment-data.json"
+    equip_data = load_json(equip_file)
+    if equip_data and "equipment_catalogs" in equip_data:
+        for cat_eq in equip_data["equipment_catalogs"]:
+            doc_id = cat_eq.get("id")
+            ess_str = "\n".join([
+                f"- {e['name']} ({e['approxCostRange']}): {e['purpose']} [Specs: {e['specifications']}, Maint: {e['maintenance']}]"
+                for e in cat_eq.get("essentialEquipment", [])
+            ])
+            opt_str = "\n".join([
+                f"- {e['name']} ({e['approxCostRange']}): {e['purpose']} [Specs: {e['specifications']}, Maint: {e['maintenance']}]"
+                for e in cat_eq.get("optionalUpgrades", [])
+            ]) if cat_eq.get("optionalUpgrades") else "None specified"
+
+            content = f"""
+Equipment & Machinery Catalog: {cat_eq.get('businessName')} (Category: {cat_eq.get('category')})
+Essential Equipment (Bill of Materials):
+{ess_str}
+
+Optional / Modernization Upgrades:
+{opt_str}
+""".strip()
+
+            documents.append(content)
+            metadatas.append({
+                "type": "equipment_catalog",
+                "category": cat_eq.get("category"),
+                "name": cat_eq.get("businessName"),
+            })
+            ids.append(doc_id)
+
+    # 5. Ingest Shed & Civil Infrastructure Guidelines
+    infra_file = data_dir / "infrastructure-data.json"
+    infra_data = load_json(infra_file)
+    if infra_data and "infrastructure_guidelines" in infra_data:
+        for infra in infra_data["infrastructure_guidelines"]:
+            doc_id = infra.get("id")
+            content = f"""
+Shed & Civil Infrastructure Guidelines: {infra.get('businessName')} (Category: {infra.get('category')})
+Space & Layout Requirements: {infra.get('spaceRequirements')}
+Layout & Shed Orientation: {infra.get('layoutAndOrientation')}
+Flooring, Slope & Drainage: {infra.get('flooringAndDrainage')}
+Roofing, Eaves Height & Ventilation: {infra.get('roofingAndHeight')}
+Natural Lighting & Air Quality: {infra.get('ventilationAndLighting', 'Adequate cross ventilation and daylight')}
+Water Supply & Biosecurity: {infra.get('waterAndBiosecurity', 'Clean potable water access')}
+Approximate Construction Cost: {infra.get('approxCostRange')}
+""".strip()
+
+            documents.append(content)
+            metadatas.append({
+                "type": "infrastructure_guide",
+                "category": infra.get("category"),
+                "name": infra.get("businessName"),
+            })
+            ids.append(doc_id)
+
+    # 6. Ingest Licensing & Statutory Compliance Guides
+    comp_file = data_dir / "compliance-data.json"
+    comp_data = load_json(comp_file)
+    if comp_data and "compliance_guides" in comp_data:
+        for comp in comp_data["compliance_guides"]:
+            doc_id = comp.get("id")
+            tiers_str = json.dumps(comp.get("tiersAndThresholds", comp.get("exemptionThresholds", [])), ensure_ascii=False, indent=2)
+            docs_str = ", ".join(comp.get("requiredDocuments", comp.get("requirements", [])))
+
+            content = f"""
+Statutory Licensing & Compliance Guide: {comp.get('topic')}
+Regulatory Authority: {comp.get('regulatoryBody')}
+Applicable Rural Enterprises: {comp.get('applicableEnterprises', 'Rural micro and small enterprises')}
+Tiers, Thresholds & Fee Structure:
+{tiers_str}
+Required Verification Documents: {docs_str}
+Processing Timeline & Steps: {comp.get('process', comp.get('timeline', 'Self-declaration / Online portal submission'))}
+Advisory Note: {comp.get('legalNote', 'General regulatory guidance for small enterprises.')}
+""".strip()
+
+            documents.append(content)
+            metadatas.append({
+                "type": "compliance_guide",
+                "topic": comp.get("topic"),
+                "name": comp.get("topic"),
+            })
+            ids.append(doc_id)
+
+    # 7. Ingest Budget to Business Discovery Matrix
+    disc_file = data_dir / "discovery-data.json"
+    disc_data = load_json(disc_file)
+    if disc_data and "budget_discovery_matrix" in disc_data:
+        for disc in disc_data["budget_discovery_matrix"]:
+            doc_id = disc.get("id")
+            biz_lines = []
+            for b in disc.get("suitableBusinesses", []):
+                biz_lines.append(
+                    f"• {b['trade']} (Category: {b['category']}): Investment {b['minBudget']}, Equipment: {b['keyEquipment']}, Working Capital: {b['workingCapital']}, Scale: {b['scale']}, Expected Monthly Net Profit: {b['expectedMonthlyProfit']}, Recommended Credit Scheme: {b['targetScheme']}"
+                )
+            biz_str = "\n".join(biz_lines)
+
+            content = f"""
+Business Discovery by Investment Budget: {disc.get('capitalTier')} (Range: {disc.get('investmentRange')})
+Viable Rural Micro Enterprises:
+{biz_str}
+""".strip()
+
+            documents.append(content)
+            metadatas.append({
+                "type": "discovery_matrix",
+                "tier": disc.get("capitalTier"),
+                "name": disc.get("capitalTier"),
+            })
+            ids.append(doc_id)
+
+    # 8. Ingest Financial Literacy & Rural Insurance
+    fin_file = data_dir / "financial-literacy-data.json"
+    fin_data = load_json(fin_file)
+    if fin_data and "financial_literacy_modules" in fin_data:
+        for fin in fin_data["financial_literacy_modules"]:
+            doc_id = fin.get("id")
+            if "products" in fin:
+                prod_str = json.dumps(fin.get("products", []), ensure_ascii=False, indent=2)
+                content = f"""
+Banking & Savings Literacy Guide: {fin.get('topic')} (Domain: {fin.get('domain')})
+Regulatory Body: {fin.get('regulatoryAgency')}
+Available Deposit & Savings Products:
+{prod_str}
+Deposit Safety Guarantee: {fin.get('depositSafetyGuarantee')}
+""".strip()
+            else:
+                content = f"""
+Rural Micro-Insurance Reference Guide: {fin.get('topic')} (Domain: {fin.get('domain')})
+Regulatory / Sponsoring Agency: {fin.get('regulatoryAgency')}
+Risk Coverage Scope: {fin.get('coverageScope')}
+Premium Structure & Government Subsidy: {fin.get('premiumAndSubsidy', fin.get('premiumStructure', ''))}
+Identification & Claim Settlement Process: {fin.get('identificationMandate', '')} {fin.get('claimProcedure', fin.get('enrollmentAndClaim', ''))}
+Important Exclusions: {fin.get('importantExclusions')}
+""".strip()
+
+            documents.append(content)
+            metadatas.append({
+                "type": "financial_literacy",
+                "domain": fin.get("domain"),
+                "topic": fin.get("topic"),
+                "name": fin.get("topic"),
             })
             ids.append(doc_id)
 

@@ -85,10 +85,10 @@ class LLMMonitor {
   private thresholds: LocalThresholdConfig = { ...DEFAULT_THRESHOLDS };
 
   private primary: ProviderMetrics = {
-    providerName: 'NVIDIA NIM',
-    model: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b',
-    isConfigured: Boolean(process.env.NVIDIA_API_KEY),
-    status: Boolean(process.env.NVIDIA_API_KEY) ? 'ONLINE' : 'UNKNOWN',
+    providerName: 'GPT',
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    isConfigured: Boolean(process.env.OPENAI_API_KEY),
+    status: Boolean(process.env.OPENAI_API_KEY) ? 'ONLINE' : 'UNKNOWN',
     requestCount: 0,
     successfulRequestCount: 0,
     failedRequestCount: 0,
@@ -105,10 +105,10 @@ class LLMMonitor {
   };
 
   private secondary: ProviderMetrics = {
-    providerName: 'Google Gemini',
-    model: 'gemini-2.5-flash',
-    isConfigured: Boolean(process.env.GEMINI_API_KEY),
-    status: Boolean(process.env.GEMINI_API_KEY) ? 'ONLINE' : 'UNKNOWN',
+    providerName: 'NVIDIA NIM',
+    model: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b',
+    isConfigured: Boolean(process.env.NVIDIA_API_KEY),
+    status: Boolean(process.env.NVIDIA_API_KEY) ? 'ONLINE' : 'UNKNOWN',
     requestCount: 0,
     successfulRequestCount: 0,
     failedRequestCount: 0,
@@ -149,9 +149,15 @@ class LLMMonitor {
   private activeTier: 'primary' | 'secondary' | 'local_fallback' = 'primary';
   private providerReportedQuota: string | null = null;
 
+  private explicitConfig: { primary?: boolean; secondary?: boolean } = {};
+
   public updateConfig() {
-    this.primary.isConfigured = Boolean(process.env.NVIDIA_API_KEY) || this.primary.isConfigured;
-    this.secondary.isConfigured = Boolean(process.env.GEMINI_API_KEY) || this.secondary.isConfigured;
+    this.primary.isConfigured = this.explicitConfig.primary !== undefined
+      ? this.explicitConfig.primary
+      : Boolean(process.env.OPENAI_API_KEY);
+    this.secondary.isConfigured = this.explicitConfig.secondary !== undefined
+      ? this.explicitConfig.secondary
+      : Boolean(process.env.NVIDIA_API_KEY);
     if (!this.fallbackActive) {
       if (this.primary.isConfigured) {
         this.activeTier = 'primary';
@@ -164,8 +170,7 @@ class LLMMonitor {
   }
 
   public setConfigured(providerKey: 'primary' | 'secondary', configured: boolean) {
-    if (providerKey === 'primary') this.primary.isConfigured = configured;
-    if (providerKey === 'secondary') this.secondary.isConfigured = configured;
+    this.explicitConfig[providerKey] = configured;
     this.updateConfig();
   }
 
@@ -370,8 +375,10 @@ class LLMMonitor {
 
 export function sanitizeErrorMessage(msg: string): string {
   if (!msg) return 'Unknown error';
-  // Strictly strip any key patterns (e.g. AIza..., nvapi-..., Bearer ...)
+  // Strictly strip any key patterns (e.g. sk-proj-..., AIza..., nvapi-..., Bearer ...)
   return msg
+    .replace(/sk-proj-[0-9A-Za-z-_]+/g, '[REDACTED_OPENAI_KEY]')
+    .replace(/sk-[0-9A-Za-z-_]{20,}/g, '[REDACTED_OPENAI_KEY]')
     .replace(/AIza[0-9A-Za-z-_]{35}/g, '[REDACTED_GOOGLE_API_KEY]')
     .replace(/nvapi-[0-9A-Za-z-_]+/g, '[REDACTED_NVIDIA_API_KEY]')
     .replace(/key=[A-Za-z0-9-_]+/gi, 'key=[REDACTED_KEY]')

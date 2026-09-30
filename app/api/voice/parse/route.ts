@@ -46,17 +46,17 @@ Follow these rules:
           return NextResponse.json({
             success: true,
             extracted: parsed,
-            source: `Gemini (${geminiRes.model})`,
+            source: 'Voice Parser Engine',
           });
         } catch (parseErr) {
-          console.warn('[Voice AI Parser] Failed to parse Gemini response as JSON:', parseErr);
+          console.warn('[Voice AI Parser] Failed to parse response as JSON:', parseErr);
         }
       }
     }
 
     return NextResponse.json({
       success: false,
-      message: 'Gemini extraction unavailable; check GEMINI_API_KEY.',
+      message: 'Voice extraction service currently unavailable.',
     });
   } catch (error: any) {
     console.error('Error in /api/voice/parse:', error);

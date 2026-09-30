@@ -47,6 +47,9 @@ export interface ParsedQueryIntent {
     | 'expansion_capital_calculation'
     | 'raw_material_optimization'
     | 'pricing_guidance'
+    | 'market_demand'
+    | 'competitor_analysis'
+    | 'risk_assessment'
     | 'government_schemes'
     | 'seasonal_operational_advice'
     | 'cash_flow_optimization'
@@ -269,8 +272,8 @@ export function detectBusinessDomain(
     // Dairy Farming
     if (
       [
-        'dairy', 'cow', 'cows', 'buffalo', 'buffaloes', 'milch', 'milk', 'fodder', 'cattle',
-        'butter', 'ghee', 'curd', 'lactation', 'dairy farm', 'పాడి', 'ఆవు', 'ఆవులు', 'బర్రె',
+        'dairy', 'diary', 'cow', 'cows', 'buffalo', 'buffaloes', 'milch', 'milk', 'fodder', 'cattle',
+        'butter', 'ghee', 'curd', 'lactation', 'dairy farm', 'diary farm', 'పాడి', 'ఆవు', 'ఆవులు', 'బర్రె',
         'గేదె', 'గేదెలు', 'పాలు', 'దాణా', 'పశువులు', 'డెయిరీ', 'దుగ్ధ'
       ].some((w) => t.includes(w))
     ) {
@@ -520,23 +523,45 @@ export function classifyQueryIntent(
 
   // 1. Location Selection / Business Location Analysis (HIGH PRIORITY)
   const isLocationSelection = [
+    'best areas', 'best area', 'which areas', 'which area', 'areas in', 'area in',
     'where should i establish', 'where can i establish', 'where should i open', 'where can i open',
     'where should i start', 'where to establish', 'where to open', 'where to set up', 'where to start',
+    'where to setup', 'where to locate', 'where can i start', 'where can i setup', 'where to build',
     'suggest me places', 'suggest places', 'suggest some places', 'which localities', 'which locality',
-    'which area', 'which location', 'best locations', 'best location', 'best localities', 'best place',
-    'best places', 'good location', 'good place', 'profitable location', 'where i can get great profits',
-    'where if i establish', 'which area is better', 'suitable location', 'cluster', 'location for my',
-    'place for my', 'where to locate', 'area for my', 'localities can give', 'places where',
-    'which areas', 'best suitable', 'suitable to open', 'suitable to start',
+    'which location', 'best locations', 'best location', 'best localities', 'best place', 'best places',
+    'good location', 'good place', 'profitable location', 'where i can get great profits',
+    'where if i establish', 'which area is better', 'suitable location', 'suitable area', 'cluster',
+    'location for my', 'place for my', 'area for my', 'localities can give', 'places where',
+    'best suitable', 'suitable to open', 'suitable to start', 'where in', 'places to establish',
+    'places in', 'locations in', 'mandals in', 'villages in', 'towns in',
     'ఎక్కడ ప్రారంభించాలి', 'ఎక్కడ పెట్టాలి', 'ఎక్కడ స్థాపించాలి', 'ఏ ప్రాంతం', 'ఏ ప్రాంతాలు', 'ప్రాంతాలు', 'ఏ ప్రదేశాలు',
     'స్థలాలు', 'మంచి ప్రదేశం', 'లొకేషన్', 'ఏ ఊరు', 'ప్రదేశం', 'స్థలం ఎంపిక', 'ఏ ఏరియా', 'ప్రదేశాలు',
-    'అనువైన ప్రాంతాలు', 'అనువైన స్థలాలు', 'అనువైన స్థలం'
+    'అనువైన ప్రాంతాలు', 'అనువైన స్థలాలు', 'అనువైన స్థలం', 'మంచి ప్రాంతం'
+  ].some((w) => q.includes(w));
+
+  // 1b. Market / Consumer Demand Questions
+  const isMarketDemand = [
+    'demand for', 'milk demand', 'market demand', 'customer demand', 'buying demand', 'demand in',
+    'how much demand', 'consumption in', 'off-take in', 'offtake in', 'buyers for', 'market reach',
+    'గిరాకీ', 'డిమాండ్', 'కొనుగోలుదారులు'
+  ].some((w) => q.includes(w));
+
+  // 1c. Competitor / Density Questions
+  const isCompetitor = [
+    'competition', 'competitors', 'competing', 'other shops', 'other farms', 'other dairies',
+    'market competition', 'density of', 'పోటీ', 'పోటీదారులు'
+  ].some((w) => q.includes(w));
+
+  // 1d. Risk Assessment Questions
+  const isRisks = [
+    'major risks', 'what are the risks', 'key risks', 'risk in', 'risks for', 'challenges in',
+    'threats to', 'drawbacks of', 'నష్టభయం', 'ప్రమాదాలు', 'సవాళ్లు'
   ].some((w) => q.includes(w));
 
   // 2. Feed / Raw Material / Input Sourcing
   const isFeed = [
     'feed', 'fodder', 'raw material', 'input cost', 'cost of feed', 'yarn', 'fabric', 'daana', 'దాణా',
-    'పచ్చిగడ్డి', 'ముడిసరుకు', 'తక్కువ ఖర్చు', 'నూలు', 'చౌకగా', 'buy feed', 'cheaper'
+    'పచ్చిగడ్డి', 'ముడిసరుకు', 'తక్కువ ఖర్చు', 'నూలు', 'చౌకగా', 'buy feed', 'cheaper', 'feed cheaply', 'cheap feed'
   ].some((w) => q.includes(w));
 
   // 3. Investment Decision
@@ -576,7 +601,8 @@ export function classifyQueryIntent(
   ].some((w) => q.includes(w));
 
   const isPricing = [
-    'pricing', 'selling price', 'rate per', 'cost per', 'charge', 'ధర', 'ఎంత అమ్మాలి', 'ధర నిర్ణయం', 'రేటు', 'కిలో ధర'
+    'pricing', 'selling price', 'rate per', 'cost per', 'charge', 'milk price', 'price in', 'prevailing price',
+    'ధర', 'ఎంత అమ్మాలి', 'ధర నిర్ణయం', 'రేటు', 'కిలో ధర', 'పాల ధర'
   ].some((w) => q.includes(w));
 
   const isSchemes = [
@@ -625,6 +651,15 @@ export function classifyQueryIntent(
     isNumerical = true;
   } else if (isLocationSelection) {
     intent = 'location_selection';
+    isNumerical = false;
+  } else if (isMarketDemand) {
+    intent = 'market_demand';
+    isNumerical = false;
+  } else if (isCompetitor) {
+    intent = 'competitor_analysis';
+    isNumerical = false;
+  } else if (isRisks) {
+    intent = 'risk_assessment';
     isNumerical = false;
   } else if (isInvestmentDecision) {
     intent = 'investment_decision';

@@ -1,0 +1,162 @@
+{
+  "budget_discovery_matrix": [
+    {
+      "id": "disc_under_50k",
+      "capitalTier": "Under ₹50,000 (Micro Starter Tier)",
+      "investmentRange": "₹15,000 - ₹50,000",
+      "suitableBusinesses": [
+        {
+          "trade": "Rural Tailoring & Alteration Unit",
+          "category": "tailoring",
+          "minBudget": "₹20,000 - ₹35,000",
+          "keyEquipment": "1 Direct-drive industrial lockstitch sewing machine, basic fabric scissors, cutting table",
+          "workingCapital": "₹5,000 - ₹10,000 (threads, needles, linings, buttons)",
+          "scale": "Single artisan (8-10 garments/day)",
+          "expectedMonthlyProfit": "₹8,000 - ₹16,000",
+          "targetScheme": "PM Vishwakarma (5% interest, Tranche 1 ₹1L) / MUDRA Shishu"
+        },
+        {
+          "trade": "Mobile Street Food / Tea & Tiffin Cart",
+          "category": "street_food",
+          "minBudget": "₹25,000 - ₹45,000",
+          "keyEquipment": "Commercial 2-burner gas stove, SS mobile cart with canopy, utensils, gas cylinder",
+          "workingCapital": "₹8,000 - ₹12,000 (cooking oil, batter, tea powder, milk)",
+          "scale": "1-2 operators (150-250 footfalls/day)",
+          "expectedMonthlyProfit": "₹12,000 - ₹25,000",
+          "targetScheme": "PM SVANidhi (₹10k-₹50k micro-loan) / MUDRA Shishu"
+        },
+        {
+          "trade": "Traditional Terracotta & Pottery Unit",
+          "category": "pottery",
+          "minBudget": "₹20,000 - ₹40,000",
+          "keyEquipment": "Electric motorized potter's wheel, clay moulds, basic tools",
+          "workingCapital": "₹5,000 - ₹10,000 (clay truckload, firewood/fuel)",
+          "scale": "Artisan family unit",
+          "expectedMonthlyProfit": "₹9,000 - ₹18,000",
+          "targetScheme": "PM Vishwakarma / MUDRA Shishu"
+        }
+      ]
+    },
+    {
+      "id": "disc_50k_to_150k",
+      "capitalTier": "₹50,000 to ₹1,50,000 (Small Micro Enterprise Tier)",
+      "investmentRange": "₹50,000 - ₹1,50,000",
+      "suitableBusinesses": [
+        {
+          "trade": "Rural Kirana & Daily Grocery Store",
+          "category": "kirana",
+          "minBudget": "₹75,000 - ₹1,50,000",
+          "keyEquipment": "Modular steel display racks, digital weighing scale, deep freezer/cooler",
+          "workingCapital": "₹50,000 - ₹1,00,000 (FMCG stock, pulses, rice, edible oils, spices)",
+          "scale": "Village shop (30-60 customers/day)",
+          "expectedMonthlyProfit": "₹15,000 - ₹32,000 (12-18% net margin)",
+          "targetScheme": "MUDRA Kishore / NBCFDC Micro Finance"
+        },
+        {
+          "trade": "Two-Wheeler & Small Auto Repair Workshop",
+          "category": "auto_repair",
+          "minBudget": "₹80,000 - ₹1,50,000",
+          "keyEquipment": "Air compressor, bike lift ramp, diagnostic multimeter, socket & spanner toolkits",
+          "workingCapital": "₹35,000 - ₹60,000 (engine oils, brake shoes, spark plugs, fast-moving spares)",
+          "scale": "1 mechanic + 1 helper (8-15 bikes serviced/day)",
+          "expectedMonthlyProfit": "₹18,000 - ₹35,000",
+          "targetScheme": "MUDRA Kishore / NBCFDC Micro Finance"
+        },
+        {
+          "trade": "Pochampally Handloom Silk & Cotton Weaving Unit",
+          "category": "weaving",
+          "minBudget": "₹70,000 - ₹1,40,000",
+          "keyEquipment": "1-2 Fly-shuttle pit looms, jacquard shedding box, pirn winding equipment",
+          "workingCapital": "₹40,000 - ₹75,000 (silk yarn hanks, natural dyes, zari reels)",
+          "scale": "1-2 weavers (2-4 sarees/month)",
+          "expectedMonthlyProfit": "₹16,000 - ₹30,000",
+          "targetScheme": "PM Vishwakarma / NBCFDC Micro Finance / Stand-Up India"
+        }
+      ]
+    },
+    {
+      "id": "disc_150k_to_300k",
+      "capitalTier": "₹1,50,000 to ₹3,00,000 (Growth Micro Enterprise Tier)",
+      "investmentRange": "₹1,50,000 - ₹3,00,000",
+      "suitableBusinesses": [
+        {
+          "trade": "Mini Dairy Enterprise (2 High-Yield Milch Cows/Buffaloes)",
+          "category": "dairy",
+          "minBudget": "₹1,80,000 - ₹2,80,000",
+          "keyEquipment": "2 Murrah buffaloes / HF cows, single-bucket milking machine, chaff cutter, 40L milk cans",
+          "workingCapital": "₹40,000 - ₹65,000 (cattle feed stock, dry fodder, veterinary care)",
+          "scale": "2 milch animals producing 20-28 Litres milk/day",
+          "expectedMonthlyProfit": "₹15,000 - ₹24,000",
+          "targetScheme": "NBCFDC Term Loan / PMEGP / Animal Husbandry Infrastructure"
+        },
+        {
+          "trade": "Rural Carpentry & Furniture Fabrication Workshop",
+          "category": "carpentry",
+          "minBudget": "₹1,80,000 - ₹2,60,000",
+          "keyEquipment": "Multipurpose wood table saw & planer, hand power tool set, clamping tables",
+          "workingCapital": "₹80,000 - ₹1,20,000 (timber logs, plywood sheets, hardware, polish)",
+          "scale": "Master carpenter + 2 assistants (custom doors, beds, rural furniture)",
+          "expectedMonthlyProfit": "₹22,000 - ₹45,000",
+          "targetScheme": "MUDRA Kishore / PM Vishwakarma / PMEGP"
+        },
+        {
+          "trade": "Semi-Automated Garment Manufacturing / Uniform Tailoring",
+          "category": "tailoring",
+          "minBudget": "₹1,60,000 - ₹2,80,000",
+          "keyEquipment": "3-4 Direct-drive lockstitch machines, 5-thread overlock, vacuum steam press table",
+          "workingCapital": "₹60,000 - ₹1,00,000 (fabric roll yardage, threads, packaging boxes)",
+          "scale": "3-4 tailoring operators (30-50 school/corporate uniforms/day)",
+          "expectedMonthlyProfit": "₹25,000 - ₹50,000",
+          "targetScheme": "Stand-Up India (Women mandate) / PMEGP (35% subsidy)"
+        }
+      ]
+    },
+    {
+      "id": "disc_300k_to_1000k",
+      "capitalTier": "₹3,00,000 to ₹10,00,000 (Enterprise Scaling Tier)",
+      "investmentRange": "₹3,00,000 - ₹10,00,000",
+      "suitableBusinesses": [
+        {
+          "trade": "Commercial Dairy Farm (4 to 8 High-Yield Animals + Shed)",
+          "category": "dairy",
+          "minBudget": "₹4,50,000 - ₹9,00,000",
+          "keyEquipment": "4-8 Murrah buffaloes, double-bucket milking machine, motorized chaff cutter, bulk milk chiller, pucca shed",
+          "workingCapital": "₹1,20,000 - ₹2,50,000 (commercial feed buffer, silage pits, labor wages)",
+          "scale": "50-100 Litres milk/day",
+          "expectedMonthlyProfit": "₹40,000 - ₹85,000",
+          "targetScheme": "NBCFDC Term Loan / Stand-Up India / PMEGP"
+        },
+        {
+          "trade": "Poultry Broiler Farming (1,000 - 2,000 Birds Batch Cycle)",
+          "category": "poultry",
+          "minBudget": "₹3,50,000 - ₹7,50,000",
+          "keyEquipment": "Civil ventilated poultry shed (1,200 sq. ft), automatic nipple lines, bell feeders, gas brooders",
+          "workingCapital": "₹1,80,000 - ₹3,50,000 (day-old chicks, pre-starter/finisher feed, vaccines)",
+          "scale": "1,000-2,000 broilers per 40-45 day cycle (5-6 batches/year)",
+          "expectedMonthlyProfit": "₹30,000 - ₹65,000",
+          "targetScheme": "PMEGP (35% subsidy) / MUDRA Tarun / Stand-Up India"
+        },
+        {
+          "trade": "Mini Commercial Flour & Dal Processing Mill",
+          "category": "agri_processing",
+          "minBudget": "₹4,00,000 - ₹8,50,000",
+          "keyEquipment": "Heavy-duty 7.5 HP Atta Chakki, Dal de-husker, vibratory destoner, bag stitching machine, pucca shed",
+          "workingCapital": "₹1,50,000 - ₹3,00,000 (raw paddy/wheat/dal procurement, packing sacks)",
+          "scale": "500-1,000 kg grain milling/day",
+          "expectedMonthlyProfit": "₹35,000 - ₹75,000",
+          "targetScheme": "PMEGP (35% subsidy) / MUDRA Tarun / Agriculture Infrastructure Fund (AIF)"
+        },
+        {
+          "trade": "Inland Freshwater Aquaculture & Fish Pond (0.5 to 1.0 Acre)",
+          "category": "fishery",
+          "minBudget": "₹3,50,000 - ₹7,00,000",
+          "keyEquipment": "Pond excavation/dyke preparation, 2 HP paddle-wheel aerator, sampling nets, water test kit",
+          "workingCapital": "₹1,80,000 - ₹3,20,000 (fingerlings, floating pellet feed, probiotics, lime)",
+          "scale": "2-3 tonnes harvest/year (Rohu, Catla, Pangasius)",
+          "expectedMonthlyProfit": "₹32,000 - ₹60,000",
+          "targetScheme": "Pradhan Mantri Matsya Sampada Yojana (PMMSY) / PMEGP"
+        }
+      ]
+    }
+  ]
+}

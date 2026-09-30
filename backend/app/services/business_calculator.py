@@ -83,8 +83,8 @@ def detect_business_domain(
             return "handloom_weaving"
         # Dairy Farming
         if any(w in t for w in [
-            "dairy", "cow", "cows", "buffalo", "buffaloes", "milch", "milk", "fodder", "cattle",
-            "butter", "ghee", "curd", "lactation", "dairy farm", "పాడి", "ఆవు", "ఆవులు", "బర్రె",
+            "dairy", "diary", "cow", "cows", "buffalo", "buffaloes", "milch", "milk", "fodder", "cattle",
+            "butter", "ghee", "curd", "lactation", "dairy farm", "diary farm", "పాడి", "ఆవు", "ఆవులు", "బర్రె",
             "గేదె", "గేదెలు", "పాలు", "దాణా", "పశువులు", "డెయిరీ", "दुग्ध", "गाय", "भैंस"
         ]):
             return "dairy_farming"

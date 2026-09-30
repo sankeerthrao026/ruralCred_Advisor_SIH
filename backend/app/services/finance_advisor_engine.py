@@ -269,7 +269,21 @@ def calculate_intent_metrics(
         return {"summary": summary, "summaryTe": summary_te, "data": {"simLoan": sim_loan, "simEmi": sim_emi, "simDscr": sim_dscr}}
 
     if intent == "loan_affordability":
-        test_loan = float(target_amount) if target_amount and target_amount > 0 else loan_amount
+        if not target_amount or target_amount <= 0:
+            max_safe_loan = float(calc.get("maxSafeLoanAmount", monthly_surplus * 0.40 * 48))
+            max_safe_emi = float(calc.get("maxSafeMonthlyEmi", monthly_surplus * 0.40))
+            summary = (
+                f"Based on your current monthly surplus of ₹{monthly_surplus:,.0f} (Revenue: ₹{monthly_rev:,.0f} minus Expenses: ₹{monthly_exp:,.0f}), "
+                f"your safe borrowing capacity limit is ~₹{max_safe_loan:,.0f} with an affordable monthly EMI limit of ₹{max_safe_emi:,.0f} (Quarterly EMI: ₹{max_safe_emi * 3:,.0f}). "
+                f"This maintains a healthy debt-service coverage ratio (DSCR > 1.5x) and protects your operational cash surplus buffer."
+            )
+            summary_te = (
+                f"మీ ప్రస్తుత నెలవారీ నికర మిగులు ₹{monthly_surplus:,.0f} ఆధారంగా, మీ గరిష్ట సురక్షిత రుణ పరిమితి దాదాపు ₹{max_safe_loan:,.0f} (నెలవారీ వాయిదా పరిమితి: ₹{max_safe_emi:,.0f}). "
+                f"ఇది మీ వ్యాపారానికి సురక్షితమైనది."
+            )
+            return {"summary": summary, "summaryTe": summary_te, "data": {"maxSafeLoanAmount": max_safe_loan, "maxSafeMonthlyEmi": max_safe_emi, "monthlySurplus": monthly_surplus}}
+
+        test_loan = float(target_amount)
         monthly_rate = interest_rate / 100.0 / 12.0
         total_months = tenure_years * 12
         cf = math.pow(1.0 + monthly_rate, total_months)

@@ -241,14 +241,14 @@ export function LlmProviderStatusCard({ language = 'en', refreshTrigger }: LlmPr
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5 font-sora">
                   <Cpu className="size-3.5 text-primary" />
-                  Primary (NVIDIA NIM)
+                  Primary Engine
                 </span>
                 {getStatusBadge(data.primary.status)}
               </div>
               <div className="text-[11px] space-y-1 text-muted-foreground">
                 <div className="flex justify-between">
-                  <span>Model:</span>
-                  <span className="font-mono text-[10px] text-foreground truncate max-w-32">{data.primary.model}</span>
+                  <span>Status:</span>
+                  <span className="font-semibold text-foreground">{data.primary.status}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Requests:</span>
@@ -276,14 +276,14 @@ export function LlmProviderStatusCard({ language = 'en', refreshTrigger }: LlmPr
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5 font-sora">
                   <Zap className="size-3.5 text-primary" />
-                  Secondary (Google Gemini)
+                  Secondary Engine
                 </span>
                 {getStatusBadge(data.secondary.status)}
               </div>
               <div className="text-[11px] space-y-1 text-muted-foreground">
                 <div className="flex justify-between">
-                  <span>Model:</span>
-                  <span className="font-mono text-[10px] text-foreground truncate max-w-32">{data.secondary.model}</span>
+                  <span>Status:</span>
+                  <span className="font-semibold text-foreground">{data.secondary.status}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Requests:</span>

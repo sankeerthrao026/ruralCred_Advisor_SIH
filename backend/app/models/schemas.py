@@ -9,14 +9,21 @@ class UserProfile(BaseModel):
     businessName: str = "Sharma Dairy Farm"
     location: str = "Warangal, Telangana"
     category: str = "Dairy Farming"
-    marginCapital: float = 100000.0
+    marginCapital: float = 150000.0
     hasActiveLoan: bool = False
     simulatingSecondLoan: bool = False
     onboardingCompleted: bool = True
     gender: Optional[str] = "female"
-    socialCategory: Optional[str] = "General"
+    socialCategory: Optional[str] = "OBC"
     language: str = "en"
     inputMode: str = "text"
+    yearsInBusiness: Optional[int] = 6
+    numberCattle: Optional[int] = 18
+    primaryActivity: Optional[str] = "Milk production and cooperative milk supply"
+    monthlyAverageIncome: Optional[str] = "₹45,000–₹50,000"
+    monthlyAverageExpenses: Optional[str] = "₹12,000–₹15,000"
+    loanRequirement: Optional[float] = 150000.0
+    loanPurpose: Optional[str] = "Purchase additional cattle and improve dairy infrastructure"
 
 class ProfileUpdate(BaseModel):
     name: Optional[str] = None
@@ -31,6 +38,13 @@ class ProfileUpdate(BaseModel):
     socialCategory: Optional[str] = None
     language: Optional[str] = None
     inputMode: Optional[str] = None
+    yearsInBusiness: Optional[int] = None
+    numberCattle: Optional[int] = None
+    primaryActivity: Optional[str] = None
+    monthlyAverageIncome: Optional[str] = None
+    monthlyAverageExpenses: Optional[str] = None
+    loanRequirement: Optional[float] = None
+    loanPurpose: Optional[str] = None
 
 # ----------------- Deterministic Finance Engine -----------------
 class SchemeDetails(BaseModel):

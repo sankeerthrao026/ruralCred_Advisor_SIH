@@ -359,18 +359,26 @@ export const apiClient = {
   },
 
   // 7. Business Advisor RAG
-  analyzeAdvisor: async (req: {
-    location: string;
-    category: string;
-    marginCapital: number;
-    language: string;
-    userQuery?: string;
-    history?: { role: 'user' | 'assistant'; content: string }[];
-  }): Promise<ApiResult<any>> => {
-    return requestJson<any>('/advisor/analyze', {
-      method: 'POST',
-      body: JSON.stringify(req),
-    });
+  analyzeAdvisor: async (
+    req: {
+      location: string;
+      category: string;
+      marginCapital: number;
+      language: string;
+      userQuery?: string;
+      history?: { role: 'user' | 'assistant'; content: string }[];
+    },
+    timeoutMs: number = 6000
+  ): Promise<ApiResult<any>> => {
+    return requestJson<any>(
+      '/advisor/analyze',
+      {
+        method: 'POST',
+        body: JSON.stringify(req),
+      },
+      undefined,
+      timeoutMs
+    );
   },
 
   // 8. Interactive AI Finance Advisor

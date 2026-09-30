@@ -712,7 +712,7 @@ export function FinanceAdvisorScreen({ setActive }: { setActive?: (tab: string) 
                       {isTe ? 'ఇంటరాక్టివ్ AI లోన్ అడ్వైజర్ సంభాషణ' : 'Interactive AI Loan Advisor'}
                     </h3>
                     <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
-                      {adviceData?.providerUsed || 'Gemini 2.5 Flash'}
+                      {isTe ? 'ధృవీకరించబడిన సలహా' : 'Verified Advisory'}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">

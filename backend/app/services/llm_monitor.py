@@ -14,10 +14,10 @@ class LLMMonitorService:
     def __init__(self):
         self.thresholds = dict(DEFAULT_THRESHOLDS)
         self.primary = {
-            "providerName": "NVIDIA NIM",
-            "model": os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b"),
-            "isConfigured": bool(os.getenv("NVIDIA_API_KEY")),
-            "status": "ONLINE" if bool(os.getenv("NVIDIA_API_KEY")) else "UNKNOWN",
+            "providerName": "GPT",
+            "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            "isConfigured": bool(os.getenv("OPENAI_API_KEY")),
+            "status": "ONLINE" if bool(os.getenv("OPENAI_API_KEY")) else "UNKNOWN",
             "requestCount": 0,
             "successfulRequestCount": 0,
             "failedRequestCount": 0,
@@ -33,10 +33,10 @@ class LLMMonitorService:
             "lastLatencyMs": None,
         }
         self.secondary = {
-            "providerName": "Google Gemini",
-            "model": "gemini-2.5-flash",
-            "isConfigured": bool(os.getenv("GEMINI_API_KEY")),
-            "status": "ONLINE" if bool(os.getenv("GEMINI_API_KEY")) else "UNKNOWN",
+            "providerName": "NVIDIA NIM",
+            "model": os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b"),
+            "isConfigured": bool(os.getenv("NVIDIA_API_KEY")),
+            "status": "ONLINE" if bool(os.getenv("NVIDIA_API_KEY")) else "UNKNOWN",
             "requestCount": 0,
             "successfulRequestCount": 0,
             "failedRequestCount": 0,
@@ -76,8 +76,8 @@ class LLMMonitorService:
         self.provider_reported_quota = None
 
     def _update_config(self):
-        self.primary["isConfigured"] = bool(os.getenv("NVIDIA_API_KEY"))
-        self.secondary["isConfigured"] = bool(os.getenv("GEMINI_API_KEY"))
+        self.primary["isConfigured"] = bool(os.getenv("OPENAI_API_KEY"))
+        self.secondary["isConfigured"] = bool(os.getenv("NVIDIA_API_KEY"))
         if not self.primary["isConfigured"] and self.secondary["isConfigured"]:
             self.active_tier = "secondary"
         elif not self.primary["isConfigured"] and not self.secondary["isConfigured"]:
@@ -231,6 +231,8 @@ class LLMMonitorService:
     def _sanitize(self, msg: str) -> str:
         if not msg:
             return "Unknown error"
+        msg = re.sub(r"sk-proj-[0-9A-Za-z-_]+", "[REDACTED_KEY]", msg)
+        msg = re.sub(r"sk-[0-9A-Za-z-_]{20,}", "[REDACTED_KEY]", msg)
         msg = re.sub(r"AIza[0-9A-Za-z-_]{35}", "[REDACTED_KEY]", msg)
         msg = re.sub(r"nvapi-[0-9A-Za-z-_]+", "[REDACTED_KEY]", msg)
         msg = re.sub(r"Bearer\s+[A-Za-z0-9-_.]+", "Bearer [REDACTED]", msg, flags=re.IGNORECASE)

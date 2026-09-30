@@ -15,6 +15,13 @@ export interface DemoUserProfile {
   gender?: string;
   socialCategory?: string;
   hasUdyamRegistration?: boolean;
+  yearsInBusiness?: number;
+  numberCattle?: number;
+  primaryActivity?: string;
+  monthlyAverageIncome?: string;
+  monthlyAverageExpenses?: string;
+  loanRequirement?: number;
+  loanPurpose?: string;
 }
 
 export interface DemoUser {
@@ -53,6 +60,14 @@ export const PRESET_PROFILES: Record<'dairy' | 'kirana' | 'weaving', { user: Omi
       onboardingCompleted: true,
       gender: 'female',
       socialCategory: 'OBC',
+      hasUdyamRegistration: false,
+      yearsInBusiness: 6,
+      numberCattle: 18,
+      primaryActivity: 'Milk production and cooperative milk supply',
+      monthlyAverageIncome: '₹45,000–₹50,000',
+      monthlyAverageExpenses: '₹12,000–₹15,000',
+      loanRequirement: 150000,
+      loanPurpose: 'Purchase additional cattle and improve dairy infrastructure',
     },
   },
   kirana: {

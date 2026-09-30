@@ -210,6 +210,12 @@ export function BusinessAdvisorScreen() {
       const lastWithData = [...mapped].reverse().find((m) => m.data);
       if (lastWithData && lastWithData.data) {
         setData(lastWithData.data);
+        if (lastWithData.data.groundedFacts?.district) {
+          setSelectedLocation(lastWithData.data.groundedFacts.district);
+        }
+        if (lastWithData.data.groundedFacts?.category) {
+          setSelectedCategory(lastWithData.data.groundedFacts.category);
+        }
       }
     } catch (e) {
       console.warn('Failed to load conversation messages:', e);
@@ -356,7 +362,7 @@ export function BusinessAdvisorScreen() {
         multiYearProjections,
         missingInformation,
         language: isTe ? 'te' : 'en',
-        providerUsed: data?.providerUsed || 'Google Gemini 2.5 Flash / NVIDIA NIM',
+        providerUsed: data?.providerUsed || 'Live Advisory Engine',
         sourcesUsed: data?.sourcesUsed,
       };
 
@@ -402,6 +408,9 @@ export function BusinessAdvisorScreen() {
       setData(result);
 
       if (resetChat) {
+        const newConvId = `conv-biz-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        setActiveConversationId(newConvId);
+
         const initialUserMsg: AdvisorMessage = {
           id: `init-user-${Date.now()}`,
           role: 'user',
@@ -420,6 +429,52 @@ export function BusinessAdvisorScreen() {
         };
 
         setMessages([initialUserMsg, initialAiMsg]);
+
+        // Persist initial conversation session
+        if (userId) {
+          const title = `${cat} in ${loc}`;
+          await saveMessage(
+            userId,
+            newConvId,
+            {
+              id: initialUserMsg.id,
+              role: 'user',
+              content: initialUserMsg.content,
+              timestamp: Date.now() - 1000,
+              language,
+            },
+            {
+              id: newConvId,
+              advisorType: 'business',
+              title,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              language,
+              messageCount: 1,
+              lastSnippet: initialUserMsg.content.substring(0, 80),
+            }
+          );
+
+          await saveMessage(
+            userId,
+            newConvId,
+            {
+              id: initialAiMsg.id,
+              role: 'assistant',
+              content: initialAiMsg.content,
+              timestamp: Date.now(),
+              language,
+              data: result,
+            },
+            {
+              id: newConvId,
+              advisorType: 'business',
+              updatedAt: Date.now(),
+              messageCount: 2,
+              lastSnippet: (result.reply || initialAiMsg.content).substring(0, 80),
+            }
+          );
+        }
       }
     } catch (err: any) {
       console.error('Advisor error:', err);
@@ -1045,20 +1100,62 @@ export function BusinessAdvisorScreen() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowHistoryModal(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-xs border-border hover:bg-muted"
+                  >
+                    <Clock className="size-3.5 text-primary" />
+                    <span>{isTe ? 'చరిత్ర' : 'History'}</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNewConversation}
+                    className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-xs border-border hover:bg-muted"
+                  >
+                    <Plus className="size-3.5" />
+                    <span>{isTe ? 'కొత్తది' : 'New Chat'}</span>
+                  </Button>
+
                   <button
                     type="button"
                     onClick={() => runAnalysis(selectedLocation, selectedCategory, selectedSeason, true)}
                     title={isTe ? 'సంభాషణను రీసెట్ చేయండి' : 'Clear and reset conversation'}
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer border border-border/60"
                   >
-                    <Trash2 className="size-3.5" />
+                    <RefreshCw className="size-3.5" />
                     <span className="hidden sm:inline">{isTe ? 'రీసెట్' : 'Reset'}</span>
                   </button>
+
+                  <span className="text-xs text-muted-foreground hidden lg:flex items-center gap-1.5 ml-1">
+                    <MessageSquare className="size-3.5" />
+                    <span>{messages.length} {isTe ? 'సందేశాలు' : 'Turns'}</span>
+                  </span>
                 </div>
               </div>
 
               {/* Chat Message Stream */}
               <div className="p-4 sm:p-6 flex flex-col gap-4 max-h-[600px] overflow-y-auto bg-background/50">
+                {messages.length === 0 && !loading && (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="size-12 rounded-2xl bg-primary/10 grid place-items-center text-primary mb-3">
+                      <MessageSquare className="size-6" />
+                    </div>
+                    <h4 className="text-sm font-bold text-foreground">
+                      {isTe ? 'వ్యాపార సంభాషణ ప్రారంభించండి' : 'Start a New Advisory Dialogue'}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                      {isTe
+                        ? 'క్రింద సూచించిన ప్రశ్నలలో ఒకదాన్ని ఎంచుకోండి లేదా మీ వ్యాపారానికి సంబంధించిన ప్రశ్నను టైప్ చేయండి.'
+                        : 'Choose a suggested question below or type your inquiry about market demand, raw materials, or subsidies.'}
+                    </p>
+                  </div>
+                )}
                 {messages.map((msg, idx) => {
                   const isUser = msg.role === 'user';
                   const turnData = msg.data;

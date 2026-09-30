@@ -89,17 +89,17 @@ ${ocrText || '(See attached image)'}
           return NextResponse.json({
             success: true,
             data: parsed,
-            source: `Gemini (${res.model})`,
+            source: 'OCR Parser Engine',
           });
         } catch (parseErr) {
-          console.warn('[OCR AI Parser] Failed to parse Gemini response as JSON:', parseErr);
+          console.warn('[OCR AI Parser] Failed to parse response as JSON:', parseErr);
         }
       }
     }
 
     return NextResponse.json({
       success: false,
-      message: 'Gemini extraction unavailable; check GEMINI_API_KEY.',
+      message: 'OCR extraction service currently unavailable.',
     });
   } catch (error: any) {
     console.error('Error in /api/ai/ocr-parse:', error);

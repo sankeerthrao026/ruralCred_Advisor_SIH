@@ -36,9 +36,14 @@ class SemanticIntent(str, Enum):
     VOLUME_TARGET = "volume_target_calculation"
     EXPANSION_CAPITAL = "expansion_capital_calculation"
     LOCATION_SELECTION = "location_selection"
+    MARKET_DEMAND = "market_demand"
+    COMPETITOR_ANALYSIS = "competitor_analysis"
+    RISK_ASSESSMENT = "risk_assessment"
     INVESTMENT_DECISION = "investment_decision"
     RAW_MATERIAL = "raw_material_optimization"
     PRICING_GUIDANCE = "pricing_guidance"
+    SEASONAL_ADVICE = "seasonal_operational_advice"
+    CASH_FLOW = "cash_flow_optimization"
     GOVERNMENT_SCHEMES = "government_schemes"
     LOAN_SIMULATION = "loan_simulation"
     LOAN_AFFORDABILITY = "loan_affordability"
@@ -323,10 +328,20 @@ class SemanticIntentEngine:
 
         # 6. Location Selection
         is_location = any(w in q for w in [
+            "best areas", "best area", "which areas", "which area", "areas in", "area in",
             "where should i establish", "where can i establish", "where should i open", "where can i open",
-            "suggest me places", "suggest places", "which localities", "which locality", "which area",
-            "best locations", "best location", "profitable location", "suitable location", "cluster",
-            "ఎక్కడ ప్రారంభించాలి", "ఎక్కడ పెట్టాలి", "ఏ ప్రాంతం", "మంచి ప్రదేశం", "స్థలం ఎంపిక"
+            "where should i start", "where to establish", "where to open", "where to set up", "where to start",
+            "where to setup", "where to locate", "where can i start", "where can i setup", "where to build",
+            "suggest me places", "suggest places", "suggest some places", "which localities", "which locality",
+            "which location", "best locations", "best location", "best localities", "best place", "best places",
+            "good location", "good place", "profitable location", "where i can get great profits",
+            "where if i establish", "which area is better", "suitable location", "suitable area", "cluster",
+            "location for my", "place for my", "area for my", "localities can give", "places where",
+            "best suitable", "suitable to open", "suitable to start", "where in", "places to establish",
+            "places in", "locations in", "mandals in", "villages in", "towns in",
+            "ఎక్కడ ప్రారంభించాలి", "ఎక్కడ పెట్టాలి", "ఎక్కడ స్థాపించాలి", "ఏ ప్రాంతం", "ఏ ప్రాంతాలు", "ప్రాంతాలు", "ఏ ప్రదేశాలు",
+            "స్థలాలు", "మంచి ప్రదేశం", "లొకేషన్", "ఏ ఊరు", "ప్రదేశం", "స్థలం ఎంపిక", "ఏ ఏరియా", "ప్రదేశాలు",
+            "అనువైన ప్రాంతాలు", "అనువైన స్థలాలు", "అనువైన స్థలం", "మంచి ప్రాంతం"
         ])
         if is_location:
             return {
@@ -339,6 +354,61 @@ class SemanticIntentEngine:
                 "isNumerical": False,
                 "timeframe": timeframe,
                 "reasoning": "User requesting geographic location and commercial hub recommendations.",
+            }
+
+        # 6b. Market / Consumer Demand Questions
+        is_market_demand = any(w in q for w in [
+            "demand for", "milk demand", "market demand", "customer demand", "buying demand", "demand in",
+            "how much demand", "consumption in", "off-take in", "offtake in", "buyers for", "market reach",
+            "గిరాకీ", "డిమాండ్", "కొనుగోలుదారులు"
+        ])
+        if is_market_demand:
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.MARKET_DEMAND.value,
+                "confidence": 0.94,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": False,
+                "timeframe": timeframe,
+                "reasoning": "Inquiry regarding market demand and consumption patterns.",
+            }
+
+        # 6c. Competitor / Density Questions
+        is_competitor = any(w in q for w in [
+            "competition", "competitor", "competitors", "competing", "other shops", "other farms", "other dairies",
+            "market competition", "density of", "పోటీ", "పోటీదారులు"
+        ])
+        if is_competitor:
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.COMPETITOR_ANALYSIS.value,
+                "confidence": 0.93,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": False,
+                "timeframe": timeframe,
+                "reasoning": "Inquiry regarding competitor density and market competition.",
+            }
+
+        # 6d. Risk Assessment Questions
+        is_risks = any(w in q for w in [
+            "major risks", "what are the risks", "key risks", "risk in", "risks for", "challenges in",
+            "threats to", "drawbacks of", "risks", "నష్టభయం", "ప్రమాదాలు", "సవాళ్లు"
+        ])
+        if is_risks:
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.RISK_ASSESSMENT.value,
+                "confidence": 0.93,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": False,
+                "timeframe": timeframe,
+                "reasoning": "Inquiry regarding operational risks and mitigation.",
             }
 
         # 7. Capacity / Quantity Needed for Target Profit ("How many cows for ₹7,500?")
@@ -374,7 +444,76 @@ class SemanticIntentEngine:
                 "reasoning": "Break-even sales volume inquiry.",
             }
 
-        # 9. Government Schemes
+        # 9. Expansion Capital Calculation
+        if any(w in q for w in [
+            "expand", "expansion", "expanding", "next village", "scale up", "capital do i need",
+            "cost to expand", "investment to expand", "how much capital", "విస్తరణ ఖర్చు",
+            "పెట్టుబడి ఎంత కావాలి", "మరో 2 ఆవులు కొనడానికి", "ఎంత పెట్టుబడి", "విస్తరించడానికి", "విస్తరణ"
+        ]):
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.EXPANSION_CAPITAL.value,
+                "confidence": 0.94,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": True,
+                "timeframe": timeframe,
+                "reasoning": "Expansion capital requirements inquiry.",
+            }
+
+        # 10. Feed / Raw Material / Input Sourcing
+        if any(w in q for w in [
+            "feed", "fodder", "raw material", "input cost", "cost of feed", "yarn", "fabric", "daana", "దాణా",
+            "పచ్చిగడ్డి", "ముడిసరుకు", "తక్కువ ఖర్చు", "నూలు", "చౌకగా", "buy feed", "cheaper", "feed cheaply", "cheap feed"
+        ]):
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.RAW_MATERIAL.value,
+                "confidence": 0.93,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": False,
+                "timeframe": timeframe,
+                "reasoning": "Raw material and feed sourcing optimization inquiry.",
+            }
+
+        # 11. Pricing Guidance
+        if any(w in q for w in [
+            "pricing", "selling price", "rate per", "cost per", "charge", "milk price", "price in", "prevailing price",
+            "ధర", "ఎంత అమ్మాలి", "ధర నిర్ణయం", "రేటు", "కిలో ధర", "పాల ధర"
+        ]):
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.PRICING_GUIDANCE.value,
+                "confidence": 0.93,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": False,
+                "timeframe": timeframe,
+                "reasoning": "Pricing benchmarks and rate inquiry.",
+            }
+
+        # 12. Seasonal Operational Advice
+        if any(w in q for w in [
+            "summer", "heat", "hot", "yield in summer", "temperature", "weather", "lean season",
+            "ఎండ", "వేసవి", "దిగుబడి"
+        ]):
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.SEASONAL_ADVICE.value,
+                "confidence": 0.93,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": False,
+                "timeframe": timeframe,
+                "reasoning": "Seasonal operational and heat management inquiry.",
+            }
+
+        # 13. Government Schemes
         if any(w in q for w in ["scheme", "subsidy", "subsidies", "mudra", "pmegp", "nbcfdc", "vishwakarma", "stand-up", "సబ్సిడీ", "పథకం", "ప్రభుత్వ పథకాలు"]):
             return {
                 "agent": "Agent 1 (Business Advisor)",
@@ -388,7 +527,43 @@ class SemanticIntentEngine:
                 "reasoning": "Government credit schemes and capital subsidies inquiry.",
             }
 
-        # 10. Default Target Amount Catch (Only when target is explicitly established)
+        # 14. Investment Decision
+        if any(w in q for w in [
+            "should i buy", "can i buy", "want to buy", "is that a good investment", "good investment",
+            "is it safe to buy", "safe for me to buy", "is it safe to invest", "worth buying", "worth investing",
+            "air conditioner", "buy an ac", "buy a machine", "buy equipment", "కొనవచ్చా", "మంచి పెట్టుబడేనా"
+        ]):
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.INVESTMENT_DECISION.value,
+                "confidence": 0.92,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": False,
+                "timeframe": timeframe,
+                "reasoning": "Asset investment decision inquiry.",
+            }
+
+        # 15. Profitability Inquiry
+        if any(w in q for w in [
+            "how much profit", "my profit", "expected profit", "profit margin", "what profit",
+            "net profit", "income of", "earning", "earnings", "లాభం ఎంత", "నికర లాభం", "ఎంత లాభం",
+            "సంపాదన", "मुनाफा"
+        ]):
+            return {
+                "agent": "Agent 1 (Business Advisor)",
+                "intent": SemanticIntent.PROFITABILITY_INQUIRY.value,
+                "confidence": 0.91,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "inputUnits": None,
+                "isNumerical": True,
+                "timeframe": timeframe,
+                "reasoning": "General profitability and margin inquiry.",
+            }
+
+        # 16. Default Target Amount Catch (Only when target is explicitly established)
         if target_entity and any(w in q for w in ["profit", "earn", "income", "లాభం", "సంపాదన"]):
             return {
                 "agent": "Agent 1 (Business Advisor)",
@@ -402,7 +577,7 @@ class SemanticIntentEngine:
                 "reasoning": f"Target profit calculation derived from established target profit role (₹{target_entity['value']:,.0f}).",
             }
 
-        # 11. General Advisory / Market Pricing RAG
+        # 17. General Advisory / Market Pricing RAG
         return {
             "agent": "Agent 1 (Business Advisor)",
             "intent": SemanticIntent.GENERAL_ADVISORY.value,
@@ -551,13 +726,13 @@ class SemanticIntentEngine:
                 "reasoning": "Capital asset purchase safety, ROI, and affordability evaluation.",
             }
 
-        # 8. Target profit / Capacity ("How many cows to make ₹7,500?")
+        # 8. Target profit / Capacity ("How many cows to make ₹7,500?" or "5 lakh profit blueprint")
         target_entity = next((n for n in num_entities if n["role"] == NumericRole.TARGET_PROFIT.value), None)
         is_how_many = any(k in q for k in [
             "how many", "number of", "cows do i need", "cows should i buy", "buffaloes do i need",
             "looms do i need", "how many units", "ఎన్ని ఆవులు", "ఎన్ని బర్రెలు", "ఎన్ని కావాలి"
         ])
-        if (is_how_many and target_entity) or (target_entity and any(k in q for k in ["target", "target profit", "లక్ష్యం"])):
+        if is_how_many and target_entity:
             return {
                 "agent": "Agent 2 (Finance Advisor)",
                 "intent": "target_profit_capacity",
@@ -565,6 +740,15 @@ class SemanticIntentEngine:
                 "numericEntities": num_entities,
                 "targetAmount": target_entity["value"],
                 "reasoning": f"Target profit capacity planning for ₹{target_entity['value']:,.0f}.",
+            }
+        elif target_entity and any(k in q for k in ["target", "target profit", "లక్ష్యం", "profit", "లాభం", "blueprint", "planning", "financial situation", "పరిస్థితి"]):
+            return {
+                "agent": "Agent 2 (Finance Advisor)",
+                "intent": "target_profit_planning",
+                "confidence": 0.98,
+                "numericEntities": num_entities,
+                "targetAmount": target_entity["value"],
+                "reasoning": f"Target profit financial situation planning for ₹{target_entity['value']:,.0f}.",
             }
 
         # 9. Loan Simulation / Scheme Calculation
@@ -581,7 +765,9 @@ class SemanticIntentEngine:
 
         # 10. Loan Affordability
         if any(k in q for k in ["afford", "can i take", "can i borrow", "safe to take", "తీసుకోవచ్చా", "భరించగలనా"]):
-            amt = next((n["value"] for n in num_entities if n["role"] == NumericRole.LOAN_AMOUNT.value), None)
+            amt = next((n["value"] for n in num_entities if n["role"] in (NumericRole.LOAN_AMOUNT.value, NumericRole.CAPITAL_OUTLAY.value, NumericRole.TARGET_PROFIT.value, NumericRole.UNKNOWN.value)), None)
+            if amt is None and num_entities:
+                amt = num_entities[0]["value"]
             return {
                 "agent": "Agent 2 (Finance Advisor)",
                 "intent": "loan_affordability",
@@ -613,7 +799,73 @@ class SemanticIntentEngine:
                 "reasoning": "Bank loan KYC and appraisal documentation requirements.",
             }
 
-        # 13. Debt Management
+        # 13. Expense Reduction
+        if any(k in q for k in ["reduce expense", "reduce my expense", "reduce expenses", "cut cost", "cut expenses", "lower expense", "save on expense", "ఖర్చులు తగ్గించు", "ఖర్చు తగ్గించడానికి"]):
+            return {
+                "agent": "Agent 2 (Finance Advisor)",
+                "intent": "expense_reduction",
+                "confidence": 0.96,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "reasoning": "Expense breakdown analysis and operational cost reduction recommendations.",
+            }
+
+        # 14. Savings Planning & Emergency Runway
+        if any(k in q for k in ["how much should i save", "save every month", "savings plan", "savings planning", "emergency fund", "emergency runway", "how much to save", "ఎంత పొదుపు", "పొదుపు చేయాలి"]):
+            return {
+                "agent": "Agent 2 (Finance Advisor)",
+                "intent": "savings_planning",
+                "confidence": 0.96,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "reasoning": "Emergency savings reserve runway and surplus allocation planning.",
+            }
+
+        # 15. Maximum Borrowing Capacity
+        if any(k in q for k in ["how much can i borrow", "maximum loan", "max borrowing", "borrowing capacity", "how much loan can i get", "గరిష్ట రుణం", "ఎంత రుణం తీసుకోవచ్చు"]):
+            return {
+                "agent": "Agent 2 (Finance Advisor)",
+                "intent": "max_borrowing_capacity",
+                "confidence": 0.95,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "reasoning": "Underwriting maximum prudent borrowing and debt-service capacity limit.",
+            }
+
+        # 16. Working Capital vs Capex Split
+        if any(k in q for k in ["working capital", "capex", "split of loan", "operating capital", "వర్కింగ్ క్యాపిటల్"]):
+            return {
+                "agent": "Agent 2 (Finance Advisor)",
+                "intent": "working_capital_split",
+                "confidence": 0.95,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "reasoning": "Working capital versus capital expenditure loan allocation breakdown.",
+            }
+
+        # 17. Total Interest Cost
+        if any(k in q for k in ["total interest", "interest cost", "how much interest", "వడ్డీ ఎంత"]):
+            return {
+                "agent": "Agent 2 (Finance Advisor)",
+                "intent": "interest_cost",
+                "confidence": 0.95,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "reasoning": "Total interest cost and amortization outlay calculation.",
+            }
+
+        # 18. EMI Calculation
+        if any(k in q for k in ["what is my emi", "calculate emi", "monthly installment", "quarterly emi", "వాయిదా ఎంత"]):
+            return {
+                "agent": "Agent 2 (Finance Advisor)",
+                "intent": "emi_calculation",
+                "confidence": 0.95,
+                "numericEntities": num_entities,
+                "targetAmount": None,
+                "reasoning": "Quarterly and monthly EMI calculation.",
+            }
+
+        # 19. Debt Management
         if any(k in q for k in ["manage", "handle", "balance", "structure", "నిర్వహణ"]) and any(w in q for w in ["debt", "loan", "loans", "emi", "expense"]):
             return {
                 "agent": "Agent 2 (Finance Advisor)",

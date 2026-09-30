@@ -294,7 +294,7 @@ export function VoiceInputModal({
               <p className="text-xs text-muted-foreground">
                 {hasWebSpeech
                   ? 'Web Speech API • Real-Time STT'
-                  : 'Fallback Mode • Server-Side Gemini STT'}
+                  : 'Server-Side Voice Recognition'}
               </p>
             </div>
           </div>

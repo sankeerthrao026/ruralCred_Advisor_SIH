@@ -1,0 +1,98 @@
+{
+  "compliance_guides": [
+    {
+      "id": "comp_fssai",
+      "topic": "FSSAI Food Safety Registration & Licensing",
+      "regulatoryBody": "Food Safety and Standards Authority of India (FSSAI)",
+      "applicableEnterprises": "Dairy farms, milk chilling units, street food stalls, tea shops, rural restaurants, flour mills, spice processors",
+      "tiersAndThresholds": [
+        {
+          "tier": "FSSAI Basic Registration (Form A)",
+          "turnoverLimit": "Annual Turnover up to ₹12 Lakhs (or milk production up to 500 Litres/day)",
+          "statutoryFee": "₹100 per year (can apply for 1 to 5 years)",
+          "applicableTo": "Petty food manufacturers, small tea stalls, street food carts, village dairies, micro flour mills",
+          "process": "Online application on FoSCoS portal (foscos.fssai.gov.in). Requires Aadhaar, photo, basic premise proof."
+        },
+        {
+          "tier": "FSSAI State License (Form B)",
+          "turnoverLimit": "Annual Turnover between ₹12 Lakhs and ₹20 Crores (or milk handling 501 - 50,000 Litres/day)",
+          "statutoryFee": "₹2,000 - ₹5,000 per year",
+          "applicableTo": "Medium dairy processing plants, larger flour mills, catering units",
+          "process": "Requires food safety management system (FSMS) plan, water test report, equipment layout blueprint."
+        }
+      ],
+      "requiredDocuments": [
+        "Applicant Passport Photograph",
+        "Government Photo ID (Aadhaar Card / PAN Card)",
+        "Proof of Business Address (Electricity Bill / Gram Panchayat House Tax Receipt / Lease Agreement)",
+        "List of Food Categories / Products manufactured or sold"
+      ],
+      "timeline": "Registration certificate typically issued within 7 - 14 days of FoSCoS portal submission.",
+      "legalNote": "General advisory guidance based on official FSSAI (Food Safety and Standards Act 2006) regulations. Direct registration is executed on the official government portal foscos.fssai.gov.in."
+    },
+    {
+      "id": "comp_udyam_msme",
+      "topic": "Udyam MSME Registration for Rural Enterprises",
+      "regulatoryBody": "Ministry of Micro, Small and Medium Enterprises (MoMSME), Government of India",
+      "applicableEnterprises": "All micro, small, and medium manufacturing and service enterprises (Dairy, Kirana, Tailoring, Weaving, Carpentry, Auto Repair)",
+      "classificationCriteria": "Micro Enterprise: Plant/Machinery Investment $\\le$ ₹1 Crore AND Annual Turnover $\\le$ ₹5 Crores.",
+      "benefits": [
+        "Mandatory for priority lending under MUDRA, Stand-Up India, and PMEGP",
+        "Collateral-free bank loan entitlement under CGTMSE guarantee",
+        "1% interest rate subvention on bank overdraft and term loans",
+        "Protection against delayed payments (MSME Samadhaan portal mandate)",
+        "Concession on electricity bills and trademark registration fees"
+      ],
+      "statutoryFee": "₹0 (100% Free of cost on official government portal: udyamregistration.gov.in)",
+      "requiredDocuments": [
+        "Aadhaar Number of the proprietor / promoter (linked to mobile OTP)",
+        "PAN Card (Proprietor PAN for sole proprietorship)",
+        "Bank Account Number and IFSC Code",
+        "National Industry Classification (NIC) Code for the trade"
+      ],
+      "process": "Paperless online self-declaration on udyamregistration.gov.in. Certificate with permanent QR code is generated instantly or within 2-3 business days.",
+      "legalNote": "Beware of fake/fraudulent paid intermediary websites. Official registration is completely free of charge on the .gov.in portal."
+    },
+    {
+      "id": "comp_gst_rural",
+      "topic": "GST Exemption & Registration Thresholds for Small Rural Businesses",
+      "regulatoryBody": "Goods and Services Tax Network (GSTN) / CBIC",
+      "applicableEnterprises": "Kirana stores, tailoring, rural hardware, carpentry, vehicle repair, small manufacturers",
+      "exemptionThresholds": [
+        {
+          "category": "Exclusive Supply of Goods (Intra-State)",
+          "threshold": "Annual Turnover up to ₹40 Lakhs (in normal category states including Telangana, Andhra Pradesh, Maharashtra, Karnataka)",
+          "status": "Exempt from mandatory GST registration"
+        },
+        {
+          "category": "Supply of Services / Mixed Goods & Services",
+          "threshold": "Annual Turnover up to ₹20 Lakhs",
+          "status": "Exempt from mandatory GST registration"
+        },
+        {
+          "category": "Raw Agricultural & Dairy Produce",
+          "threshold": "Unbranded fresh milk, curd, eggs, raw grains, pulses, fresh vegetables, clay terracotta",
+          "status": "NIL Rated / 100% GST-Exempt regardless of turnover"
+        }
+      ],
+      "compositionScheme": "Small retail/manufacturing units with turnover up to ₹1.5 Crores can opt for Composition Scheme paying nominal 1% tax on turnover with simplified quarterly filing (CMP-08).",
+      "legalNote": "General tax literacy guidance based on current GST statutory thresholds. Businesses below ₹40L selling intra-state goods are not legally mandated to register for GST."
+    },
+    {
+      "id": "comp_panchayat_trade",
+      "topic": "Gram Panchayat Trade Permission & Basic Local Licensing",
+      "regulatoryBody": "Panchayat Raj & Rural Development Department (State Government)",
+      "applicableEnterprises": "Shops, repair workshops, commercial sheds, flour mills within village gram panchayat limits",
+      "requirements": [
+        "Gram Panchayat Trade Certificate / NOC (Fee: ₹100 - ₹500 nominal local tax)",
+        "Commercial power connection application with State DISCOM (TSNPDCL / TSSPDCL / State electricity board)",
+        "Fire & Pollution NOC: Only required for hazardous industries; micro agricultural units and shops are exempt under green category."
+      ],
+      "requiredDocuments": [
+        "Proof of premise ownership or rental agreement",
+        "Aadhaar card copy",
+        "Site plan / rough layout sketch"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "infrastructure_guidelines": [
+    {
+      "id": "infra_dairy",
+      "category": "dairy",
+      "businessName": "Dairy Cattle Shed Civil Infrastructure",
+      "spaceRequirements": "Covered Standing Area: 40 - 50 sq. ft per adult milch animal; Open Paddock/Loafing Area: 40 - 50 sq. ft per animal; Calf Pen: 20 - 25 sq. ft per calf; Feed Store: 100 - 150 sq. ft for 10-cow herd.",
+      "layoutAndOrientation": "East-West orientation to minimize direct solar radiation into the shed. Head-to-Head (central feeding passage 4-5 ft wide) or Tail-to-Tail arrangement (central cleaning/milking passage 5-6 ft wide).",
+      "flooringAndDrainage": "Pucca concrete with non-slippery grooved finish (grooves 1 inch wide, 0.5 inch deep in diamond/herringbone pattern). Floor slope: 1 in 40 (1 inch fall per 40 inches) toward the urine/manure drain. Drain width 12-15 inches with rounded edges leading to an external biogas/manure pit.",
+      "roofingAndHeight": "Gable or semi-monitor roof with GI corrugated sheets / asbestos sheets / clay tiles. Eaves height: min 10 ft (3.0 m), Ridge height: 14-16 ft (4.5 m) with a central 1.5 ft ridge vent for thermal buoyancy and heat escape.",
+      "ventilationAndLighting": "Open-sided shed design with 4.5 ft dwarf side walls and wire mesh upper half ensuring unobstructed natural cross-ventilation. Artificial lighting: 15-20 Lux (1 LED tube per 2 cow stalls for night inspection).",
+      "waterAndBiosecurity": "Clean drinking water requirement: 70 - 100 Litres per lactating cow per day. 1,000L overhead water tank with continuous float valve. Vehicle/foot disinfectant dip at shed entrance.",
+      "approxCostRange": "₹280 - ₹450 per sq. ft (Total shed cost approx ₹1,20,000 - ₹2,20,000 for a 4-milch animal setup with feeding manger and manure pit)."
+    },
+    {
+      "id": "infra_poultry",
+      "category": "poultry",
+      "businessName": "Broiler & Layer Poultry Shed Civil Infrastructure",
+      "spaceRequirements": "Broilers (Deep Litter): 1.0 - 1.2 sq. ft per bird (1,000 sq. ft for 1,000 broiler batch); Layers (Cage/Slat): 1.5 - 1.8 sq. ft per bird; Brooding Section: 0.3 sq. ft per chick for first 2 weeks.",
+      "layoutAndOrientation": "Strict East-West orientation (long axis east-west) so the sun does not hit side walls directly. Shed width should not exceed 30 ft (9 meters) to maintain effective cross-ventilation across the floor.",
+      "flooringAndDrainage": "Rat-proof pucca concrete floor with 1.5 ft plinth height above ground level. Litter bedding: 2 to 3 inches of clean, dry wood shavings or rice husk treated with hydrated lime (1 kg/10 sq. ft) to absorb moisture.",
+      "roofingAndHeight": "Gable roof with corrugated cement/GI sheets insulated underneath with thermocol/foil. Overhang: minimum 3 ft (1 meter) to prevent monsoon rain splashing. Side eaves height: 8-9 ft, Center ridge: 12-14 ft with open ridge cap.",
+      "ventilationAndLighting": "Side walls: 1.0 - 1.5 ft solid brick plinth, topped with heavy-duty 1-inch wire netting up to the roof. Side curtains (tarpaulin/nylon) adjustable for night temperature and wind control.",
+      "waterAndBiosecurity": "Fresh water requirement: 250 - 300 Litres per 1,000 broilers per day (doubles in peak summer). Dedicated biosecurity perimeter fence (min 50 ft from other livestock), footbath with potassium permanganate at door.",
+      "approxCostRange": "₹200 - ₹350 per sq. ft (Total cost approx ₹2,00,000 - ₹3,50,000 for a standard 1,000-broiler shed)."
+    },
+    {
+      "id": "infra_weaving",
+      "category": "weaving",
+      "businessName": "Handloom / Weaving Shed Infrastructure",
+      "spaceRequirements": "150 - 200 sq. ft per fly-shuttle pit loom / frame loom. Warping drum & yarn preparation area: 120 - 180 sq. ft. Finished saree/cloth storage: 80 sq. ft dry room.",
+      "layoutAndOrientation": "North-facing windows or skylights for soft, glare-free natural illumination critical for intricate color matching and jacquard thread alignment.",
+      "flooringAndDrainage": "Level concrete floor with excavated pit (3 ft length, 2.5 ft width, 1.5 ft depth) for weaver leg well and treadle pedals. Solid foundation to dampen loom vibration.",
+      "roofingAndHeight": "Insulated tiled/sheet roof maintaining internal temperature below 32°C. Relative humidity: 65% - 75% required to maintain silk/cotton yarn moisture and prevent snap breakage.",
+      "approxCostRange": "₹150 - ₹280 per sq. ft (or adaptation of existing residential verandah/shed)."
+    },
+    {
+      "id": "infra_agri_processing",
+      "category": "agri_processing",
+      "businessName": "Grain & Flour Milling Shed Infrastructure",
+      "spaceRequirements": "400 - 800 sq. ft reinforced concrete structure. Milling floor: 250 sq. ft; Raw grain sack storage: 200 sq. ft; Finished flour packing area: 150 sq. ft.",
+      "layoutAndOrientation": "Dedicated entry for raw grain unloading and separate exit for milled flour. Dust-isolated partition between grinder room and packaging room.",
+      "flooringAndDrainage": "Heavy-duty 6-inch reinforced concrete flooring (M20 grade) with vibration isolation foundation pads for 5-10 HP motors. Raised moisture-proof wooden pallets for sack storage.",
+      "roofingAndHeight": "Minimum 12 ft ceiling height with industrial exhaust fans and cyclonic dust collection ducts to ensure clean breathing air for operators.",
+      "approxCostRange": "₹350 - ₹550 per sq. ft."
+    }
+  ]
+}

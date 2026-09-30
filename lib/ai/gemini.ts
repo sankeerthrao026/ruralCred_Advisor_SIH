@@ -1,7 +1,9 @@
 /**
- * RuralCred Advisor — Google Gemini API Client for Next.js.
- * Unifies all frontend AI operations directly on Google Gemini models (e.g. gemini-2.5-flash).
- * Eliminates all external dependencies on Anthropic or OpenAI.
+ * RuralCred Advisor — Next.js LLM Client.
+ * Unifies AI advisory operations across:
+ * 1. GPT (Primary Tier 1)
+ * 2. NVIDIA NIM / Nemotron (Fallback Tier 2)
+ * 3. Grounded Deterministic Engine (Final Safety Fallback Tier 3)
  */
 
 export interface GeminiCallParams {
@@ -22,39 +24,132 @@ export interface GeminiCallResult {
   error?: string;
 }
 
-// Primary: NVIDIA NIM (Nemotron-3 Ultra 550B)
+// Primary: GPT
+const GPT_MODELS = [
+  process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  'gpt-4o',
+  'gpt-3.5-turbo',
+];
+
+// Fallback 1: NVIDIA NIM
 const NVIDIA_MODELS = [
   process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b',
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
   'nvidia/nemotron-3.5-lightning-30b-a3b',
 ];
 
-// Secondary fallback: Google Gemini
-const GEMINI_CANDIDATE_MODELS = [
-  'gemini-1.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-flash',
-];
-
 import { llmMonitor } from './monitoring';
 
 /**
- * Executes a call to the active LLM provider (NVIDIA NIM or Google Gemini).
- * Prioritizes NVIDIA NIM when NVIDIA_API_KEY is configured.
+ * Executes a call to the active LLM provider hierarchy:
+ * 1. GPT (Primary Tier 1)
+ * 2. NVIDIA NIM / Nemotron (Fallback Tier 2)
+ * 3. Deterministic Grounded Engine (Local Fallback Tier 3)
  * Automatically tracks request counts, token consumption, status, and latency.
  */
 export async function callGeminiApi(params: GeminiCallParams): Promise<GeminiCallResult> {
+  const openaiKey = process.env.OPENAI_API_KEY?.trim();
   const nvidiaKey = process.env.NVIDIA_API_KEY?.trim();
-  const geminiKey = process.env.GEMINI_API_KEY?.trim();
 
-  // 1. Try NVIDIA NIM Provider (Nemotron-3 Ultra)
+  // 1. Try GPT Provider (Primary)
+  if (openaiKey) {
+    const baseUrl = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
+    const chatUrl = `${baseUrl}/chat/completions`;
+
+    // Deduplicate candidate models
+    const candidateModels = Array.from(new Set(GPT_MODELS.filter(Boolean)));
+
+    for (const model of candidateModels) {
+      const startTime = Date.now();
+      llmMonitor.recordRequestStart('primary', model);
+      try {
+        const messages: { role: string; content: string }[] = [];
+        if (params.systemInstruction) {
+          messages.push({ role: 'system', content: params.systemInstruction });
+        }
+        messages.push({ role: 'user', content: params.userPrompt });
+
+        const body: Record<string, any> = {
+          model,
+          messages,
+          temperature: params.temperature ?? 0.2,
+          max_tokens: 2048,
+        };
+
+        if (params.responseMimeType === 'application/json') {
+          body.response_format = { type: 'json_object' };
+        }
+
+        const res = await fetch(chatUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`,
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(3500),
+        });
+
+        const latencyMs = Date.now() - startTime;
+
+        if (!res.ok) {
+          const errorText = await res.text().catch(() => '');
+          console.warn(`[AI Advisory] Primary request failed (HTTP ${res.status}) - ${errorText.slice(0, 100)}`);
+          llmMonitor.recordRequestFailure('primary', model, `HTTP_${res.status}`, errorText, res.status);
+          if (res.status === 401 || res.status === 402 || res.status === 403 || res.status === 404 || res.status === 429 || res.status === 503) {
+            break; // Fast fail across candidate models on key, quota/balance, or capacity failure
+          }
+          continue;
+        }
+
+        const json = await res.json();
+        const rawText = json?.choices?.[0]?.message?.content;
+
+        if (!rawText) {
+          console.warn(`[AI Advisory] Primary request returned empty content`);
+          llmMonitor.recordRequestFailure('primary', model, 'EMPTY_CONTENT', 'Empty response content', res.status);
+          continue;
+        }
+
+        const usage = json?.usage
+          ? {
+              inputTokens: json.usage.prompt_tokens,
+              outputTokens: json.usage.completion_tokens,
+              totalTokens: json.usage.total_tokens,
+            }
+          : undefined;
+
+        llmMonitor.recordRequestSuccess('primary', model, usage, latencyMs);
+        console.log(`[AI Advisory] Inference completed | Latency: ${latencyMs}ms | Status: SUCCESS`);
+
+        return {
+          text: rawText,
+          model,
+          success: true,
+        };
+      } catch (err: any) {
+        const latencyMs = Date.now() - startTime;
+        const errorMsg = err?.message || 'Network exception';
+        console.warn(`[AI Advisory] Primary request timed out / exception (${errorMsg})`);
+        llmMonitor.recordRequestFailure('primary', model, 'NETWORK_EXCEPTION', errorMsg);
+        break;
+      }
+    }
+
+    llmMonitor.recordFallbackActivation('GPT', 'secondary', 'All GPT candidate models failed or timed out');
+  }
+
+  // 2. Try NVIDIA NIM Provider (Nemotron Fallback)
   if (nvidiaKey) {
     const baseUrl = (process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1').replace(/\/+$/, '');
     const chatUrl = `${baseUrl}/chat/completions`;
 
-    for (const model of NVIDIA_MODELS) {
+    const candidateModels = Array.from(new Set(NVIDIA_MODELS.filter(Boolean)));
+
+    for (const model of candidateModels) {
       const startTime = Date.now();
-      llmMonitor.recordRequestStart('primary', model);
+      llmMonitor.recordRequestStart('secondary', model);
       try {
         const messages: { role: string; content: string }[] = [];
         if (params.systemInstruction) {
@@ -81,15 +176,18 @@ export async function callGeminiApi(params: GeminiCallParams): Promise<GeminiCal
             'Accept': 'application/json',
           },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(35000),
+          signal: AbortSignal.timeout(2500),
         });
 
         const latencyMs = Date.now() - startTime;
 
         if (!res.ok) {
           const errorText = await res.text().catch(() => '');
-          console.warn(`[NVIDIA NIM] Model ${model} responded with ${res.status}: ${errorText.slice(0, 150)}`);
-          llmMonitor.recordRequestFailure('primary', model, `HTTP_${res.status}`, errorText, res.status);
+          console.warn(`[AI Advisory] Fallback request failed (HTTP ${res.status}) - ${errorText.slice(0, 100)}`);
+          llmMonitor.recordRequestFailure('secondary', model, `HTTP_${res.status}`, errorText, res.status);
+          if (res.status === 401 || res.status === 403 || res.status === 404 || res.status === 429 || res.status === 503) {
+            break; // Fast fail across candidate models on auth or service exhaustion
+          }
           continue;
         }
 
@@ -97,8 +195,8 @@ export async function callGeminiApi(params: GeminiCallParams): Promise<GeminiCal
         const rawText = json?.choices?.[0]?.message?.content;
 
         if (!rawText) {
-          console.warn(`[NVIDIA NIM] Model ${model} returned empty content`);
-          llmMonitor.recordRequestFailure('primary', model, 'EMPTY_CONTENT', 'Empty response content', res.status);
+          console.warn(`[AI Advisory] Fallback request returned empty content`);
+          llmMonitor.recordRequestFailure('secondary', model, 'EMPTY_CONTENT', 'Empty response content', res.status);
           continue;
         }
 
@@ -110,106 +208,8 @@ export async function callGeminiApi(params: GeminiCallParams): Promise<GeminiCal
             }
           : undefined;
 
-        llmMonitor.recordRequestSuccess('primary', model, usage, latencyMs);
-
-        return {
-          text: rawText,
-          model,
-          success: true,
-        };
-      } catch (err: any) {
-        const errorMsg = err?.message || 'Network exception';
-        console.warn(`[NVIDIA NIM] Network error calling model ${model}:`, errorMsg);
-        llmMonitor.recordRequestFailure('primary', model, 'NETWORK_EXCEPTION', errorMsg);
-      }
-    }
-
-    llmMonitor.recordFallbackActivation('NVIDIA NIM', 'secondary', 'All NVIDIA candidate models failed or timed out');
-  }
-
-  // 2. Secondary Fallback: Google Gemini
-  if (geminiKey) {
-    for (const model of GEMINI_CANDIDATE_MODELS) {
-      const startTime = Date.now();
-      llmMonitor.recordRequestStart('secondary', model);
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-        const parts: any[] = [];
-        if (params.audioInline) {
-          let cleanB64 = params.audioInline.dataBase64;
-          if (cleanB64.includes(',')) {
-            cleanB64 = cleanB64.split(',')[1];
-          }
-          parts.push({
-            inlineData: {
-              mimeType: params.audioInline.mimeType || 'audio/webm',
-              data: cleanB64,
-            },
-          });
-        }
-        parts.push({ text: params.userPrompt });
-
-        const body: Record<string, any> = {
-          contents: [
-            {
-              role: 'user',
-              parts,
-            },
-          ],
-          generationConfig: {
-            temperature: params.temperature ?? 0.2,
-            maxOutputTokens: 2048,
-          },
-        };
-
-        if (params.systemInstruction) {
-          body.systemInstruction = {
-            parts: [{ text: params.systemInstruction }],
-          };
-        }
-
-        if (params.responseMimeType === 'application/json') {
-          body.generationConfig.responseMimeType = 'application/json';
-        }
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': geminiKey,
-          },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(10000),
-        });
-
-        const latencyMs = Date.now() - startTime;
-
-        if (!res.ok) {
-          const errorText = await res.text().catch(() => '');
-          console.warn(`[Gemini] Model ${model} responded with ${res.status}: ${errorText.slice(0, 150)}`);
-          llmMonitor.recordRequestFailure('secondary', model, `HTTP_${res.status}`, errorText, res.status);
-          continue;
-        }
-
-        const json = await res.json();
-        const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!rawText) {
-          console.warn(`[Gemini] Model ${model} returned empty content`);
-          llmMonitor.recordRequestFailure('secondary', model, 'EMPTY_CONTENT', 'Empty response content', res.status);
-          continue;
-        }
-
-        const usage = json?.usageMetadata
-          ? {
-              inputTokens: json.usageMetadata.promptTokenCount,
-              outputTokens: json.usageMetadata.candidatesTokenCount,
-              totalTokens: json.usageMetadata.totalTokenCount,
-            }
-          : undefined;
-
         llmMonitor.recordRequestSuccess('secondary', model, usage, latencyMs);
+        console.log(`[AI Advisory] Fallback inference completed | Latency: ${latencyMs}ms | Status: SUCCESS`);
 
         return {
           text: rawText,
@@ -217,23 +217,26 @@ export async function callGeminiApi(params: GeminiCallParams): Promise<GeminiCal
           success: true,
         };
       } catch (err: any) {
+        const latencyMs = Date.now() - startTime;
         const errorMsg = err?.message || 'Network exception';
-        console.warn(`[Gemini] Network error calling model ${model}:`, errorMsg);
+        console.warn(`[AI Advisory] Fallback request timed out / exception (${errorMsg})`);
         llmMonitor.recordRequestFailure('secondary', model, 'NETWORK_EXCEPTION', errorMsg);
+        break;
       }
     }
 
-    llmMonitor.recordFallbackActivation('Google Gemini', 'local_fallback', 'All Gemini candidate models failed or timed out');
+    llmMonitor.recordFallbackActivation('NVIDIA NIM', 'local_fallback', 'All NVIDIA candidate models failed or timed out');
   }
 
-  // Record deterministic fallback execution
+  // 3. Final Safety Fallback: Deterministic Grounded Engine
   llmMonitor.recordRequestStart('local_fallback');
   llmMonitor.recordRequestSuccess('local_fallback', 'local-dataset-synthesizer', undefined, 0);
+  console.log('[AI Advisory] Grounded deterministic fallback activated');
 
   return {
     text: '',
     model: '',
     success: false,
-    error: 'All LLM candidates (NVIDIA NIM and Gemini) failed or timed out.',
+    error: 'Live advisory service currently unavailable. Using verified local dataset.',
   };
 }

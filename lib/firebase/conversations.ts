@@ -53,15 +53,25 @@ export async function fetchConversations(
   if (isFirebaseConfigured && firestoreInstance && !isDemoUser) {
     try {
       const colRef = collection(firestoreInstance, `users/${userId}/conversations`);
-      const q = advisorType
-        ? query(colRef, where('advisorType', '==', advisorType), orderBy('updatedAt', 'desc'))
-        : query(colRef, orderBy('updatedAt', 'desc'));
+      let snapshot;
+      try {
+        const q = advisorType
+          ? query(colRef, where('advisorType', '==', advisorType), orderBy('updatedAt', 'desc'))
+          : query(colRef, orderBy('updatedAt', 'desc'));
+        snapshot = await getDocs(q);
+      } catch (compoundErr) {
+        // Fallback if composite index is pending
+        const fallbackQ = query(colRef, orderBy('updatedAt', 'desc'));
+        snapshot = await getDocs(fallbackQ);
+      }
 
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        const conversations = snapshot.docs.map(
+      if (snapshot && !snapshot.empty) {
+        let conversations = snapshot.docs.map(
           (d) => ({ id: d.id, ...d.data() } as ConversationMetadata)
         );
+        if (advisorType) {
+          conversations = conversations.filter((c) => c.advisorType === advisorType);
+        }
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem(getConvListStorageKey(userId), JSON.stringify(conversations));
@@ -219,9 +229,23 @@ export async function saveMessage(
       if (metadataUpdate) {
         const listKey = getConvListStorageKey(userId);
         const convList = await fetchConversations(userId);
-        const updatedList = convList.map((c) =>
-          c.id === conversationId ? { ...c, ...metadataUpdate, updatedAt: Date.now() } : c
-        );
+        const exists = convList.some((c) => c.id === conversationId);
+        const updatedList = exists
+          ? convList.map((c) =>
+              c.id === conversationId ? { ...c, ...metadataUpdate, updatedAt: Date.now() } : c
+            )
+          : [
+              {
+                id: conversationId,
+                advisorType: metadataUpdate.advisorType || 'business',
+                title: metadataUpdate.title || 'Conversation',
+                createdAt: metadataUpdate.createdAt || Date.now(),
+                updatedAt: Date.now(),
+                messageCount: 1,
+                ...metadataUpdate,
+              } as ConversationMetadata,
+              ...convList,
+            ];
         localStorage.setItem(listKey, JSON.stringify(updatedList));
       }
     } catch {}

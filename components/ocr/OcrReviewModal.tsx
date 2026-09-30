@@ -129,9 +129,9 @@ export function OcrReviewModal({
           );
         }
 
-        // 2. Smart Parser + Gemini AI Fallback
+        // 2. Smart Parser + Structured Extraction
         setProgressPct(85);
-        setProgressMsg(isTe ? 'ఖాతా వివరాలను విశ్లేషిస్తున్నాము...' : 'Parsing receipt & ledger fields with Gemini AI...');
+        setProgressMsg(isTe ? 'ఖాతా వివరాలను విశ్లేషిస్తున్నాము...' : 'Parsing receipt & ledger fields...');
 
         const result: ParsedOcrPayload = await parseReceiptOrLedgerWithAiFallback(
           text,
@@ -360,7 +360,7 @@ export function OcrReviewModal({
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Applying language pack & Gemini extraction...
+                  Applying language pack & structured extraction...
                 </p>
               </div>
             </div>

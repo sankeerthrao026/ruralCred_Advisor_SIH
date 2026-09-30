@@ -928,7 +928,7 @@ def generate_finance_advice(req: FinanceAdviceRequest) -> FinanceAdviceResponse:
             )
             if gemini_reply:
                 reply_text = gemini_reply
-                provider_used = f"Google Gemini ({gemini_service.last_model_used or 'gemini-2.5-flash'})"
+                provider_used = gemini_service.last_model_used or "GPT (gpt-4o-mini)"
 
         # Grounded conversational fallback (uses verified calculation summary)
         if not reply_text:

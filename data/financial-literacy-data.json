@@ -1,0 +1,55 @@
+{
+  "financial_literacy_modules": [
+    {
+      "id": "fin_livestock_insurance",
+      "topic": "Livestock & Cattle Insurance (Pashu Bima Yojana)",
+      "domain": "rural_insurance",
+      "regulatoryAgency": "Department of Animal Husbandry & Dairying / General Insurance Companies",
+      "coverageScope": "Covers accidental death, disease/illness, surgical complications, natural calamities (cyclone, lightning, flood), and permanent total disability of milch cows, Murrah buffaloes, bullocks, and breeding stock.",
+      "premiumAndSubsidy": "Standard gross premium is approx 3.0% - 4.5% of the animal's assessed market valuation per year. Under Centrally Sponsored Schemes, small/marginal farmers, women, and SC/ST/OBC beneficiaries receive a 50% to 70% government premium subsidy (effective net farmer contribution is only approx 1.0% - 1.5% of animal value).",
+      "identificationMandate": "Mandatory microchip RFID ear-tagging or 12-digit visual polyurethane ear-tag issued by an authorized veterinary surgeon. The intact ear tag is mandatory for claim processing ('No Tag, No Claim' rule).",
+      "claimProcedure": "In the event of animal mortality: 1) Immediate intimation to the insurance company/bank within 24 hours, 2) Mandatory post-mortem examination by a government Veterinary Assistant Surgeon (VAS), 3) Submission of post-mortem certificate along with the retrieved intact ear tag and claim form.",
+      "importantExclusions": "Intentional slaughter, theft/untraceable loss, pre-existing diseases prior to policy inception, failure to vaccinate during government immunization drives."
+    },
+    {
+      "id": "fin_crop_insurance",
+      "topic": "Pradhan Mantri Fasal Bima Yojana (PMFBY) Crop Insurance",
+      "domain": "rural_insurance",
+      "regulatoryAgency": "Ministry of Agriculture & Farmers Welfare, Government of India",
+      "coverageScope": "Comprehensive risk coverage across complete crop cycle: 1) Prevented sowing / planting risk due to deficit rainfall, 2) Standing crop yield loss due to non-preventable natural risks (drought, flood, pests, diseases), 3) Post-harvest localized losses (cyclone, unseasonal rains while crop is drying in field for up to 14 days).",
+      "premiumStructure": "Statutory subsidized premium caps for farmers: 2.0% for Kharif crops (Paddy, Cotton, Maize), 1.5% for Rabi crops (Wheat, Gram, Mustard), 5.0% for annual commercial/horticultural crops (Chilli, Turmeric, Sugarcane). Balance actuarial premium is shared 50:50 by Central and State Governments.",
+      "enrollmentAndClaim": "Available to both loanee and non-loanee farmers. Claims are settled directly into the farmer's Aadhaar-linked bank account based on Crop Cutting Experiments (CCE) and localized weather station data.",
+      "importantExclusions": "War and nuclear risks, malicious damage, preventable pest neglect."
+    },
+    {
+      "id": "fin_deposit_products",
+      "topic": "Bank Deposit & Savings Products for Rural Entrepreneurs",
+      "domain": "banking_literacy",
+      "regulatoryAgency": "Reserve Bank of India (RBI) / DICGC",
+      "products": [
+        {
+          "type": "Savings Bank Account (SB)",
+          "purpose": "Day-to-day liquidity, receipts of digital UPI payments, DBT subsidies, and working cash buffer",
+          "tenure": "Zero lock-in (instant withdrawal via ATM/Cheque/UPI)",
+          "interestConcept": "Modest interest (calculated on daily end-of-day balance, credited quarterly)",
+          "recommendation": "Maintain a minimum 1-month operational working capital reserve in a liquid savings account."
+        },
+        {
+          "type": "Fixed Deposit (FD) / Term Deposit",
+          "purpose": "Lump-sum wealth preservation and risk-free growth of excess profits or harvest windfalls",
+          "tenure": "Fixed tenure from 7 days to 10 years (typically 1 to 3 years for optimal compounding)",
+          "interestConcept": "Guaranteed fixed interest rate locked for the entire tenure, compounded quarterly. Senior citizens and women often receive 0.25% - 0.50% higher interest.",
+          "prematureWithdrawal": "Permitted at any time, but subject to a nominal penalty (usually 0.5% - 1.0% deduction from the applicable rate) and loss of full compounding interest."
+        },
+        {
+          "type": "Recurring Deposit (RD)",
+          "purpose": "Disciplined monthly savings from regular business surplus to accumulate capital for future asset purchases",
+          "tenure": "Fixed monthly installments over 6 months to 10 years",
+          "interestConcept": "Earns the same high guaranteed interest rate as a Fixed Deposit, compounding each installment quarterly.",
+          "recommendation": "RuralCred recommends allocating 25% of monthly net cash surplus into a 12-month RD to build a 3-month operating emergency runway."
+        }
+      ],
+      "depositSafetyGuarantee": "All bank deposits (Savings, FD, RD) in Scheduled Commercial Banks, Regional Rural Banks (RRBs), and Co-operative Banks are insured up to ₹5,00,000 per depositor by the Deposit Insurance and Credit Guarantee Corporation (DICGC - 100% RBI subsidiary)."
+    }
+  ]
+}

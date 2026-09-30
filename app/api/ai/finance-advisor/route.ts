@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(apiResult.data);
       }
     } catch (apiErr) {
-      console.warn('[FinanceAdvisor Route] FastAPI backend unreachable, using Next.js Gemini/Grounded pipeline:', apiErr);
+      console.warn('[FinanceAdvisor Route] Backend service unreachable, using local pipeline:', apiErr);
     }
 
     // 2. Build Structured Normalized User Financial Context
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       const intentResult = classifyFinancialQueryIntent(userQuery);
       const calcResult = performQuestionSpecificCalculations(context, intentResult);
 
-      if (process.env.GEMINI_API_KEY) {
+      if (process.env.OPENAI_API_KEY || process.env.NVIDIA_API_KEY) {
         const { systemPrompt, userPrompt } = buildDynamicAdvisorPrompt(
           context,
           intentResult,
@@ -115,10 +115,10 @@ export async function POST(request: NextRequest) {
 
           if (geminiResult.success && geminiResult.text?.trim()) {
             replyText = geminiResult.text.trim();
-            providerUsed = `Google Gemini (${geminiResult.model})`;
+            providerUsed = 'Live Advisory Engine';
           }
-        } catch (geminiErr) {
-          console.warn('[FinanceAdvisor Route] Gemini call failed, falling back to verified calculations synthesizer:', geminiErr);
+        } catch (err) {
+          console.warn('[FinanceAdvisor Route] Advisory call failed, proceeding with verified calculations synthesizer:', err);
         }
       }
 

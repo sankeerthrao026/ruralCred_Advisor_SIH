@@ -53,6 +53,13 @@ export interface UserProfile {
   gender?: string;
   socialCategory?: string;
   hasUdyamRegistration?: boolean;
+  yearsInBusiness?: number;
+  numberCattle?: number;
+  primaryActivity?: string;
+  monthlyAverageIncome?: string;
+  monthlyAverageExpenses?: string;
+  loanRequirement?: number;
+  loanPurpose?: string;
 }
 
 export interface AppContextType {
